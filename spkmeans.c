@@ -57,7 +57,53 @@ double ** make_vectors_array(FILE * file, int vector_size, int num_of_vectors){
     return vectors_array;
 }
 
-static double ** wam(double ** vectors, int d, int n){}
+static double ** make_wam_mat(int n){
+    double ** wam_mat;
+    int i,j;
+    wam_mat = calloc(n+1, sizeof(double*));
+    for (i = 0; i < n; i++){
+        wam_mat[i] = calloc(n+1, sizeof(double));
+        for (j=0 ; j < n ; j++){
+            wam_mat[i][j] = 0.0;
+        }
+    }
+    return wam_mat;
+}
+
+static void print_mat(double ** mat, int i, int j){
+    int x,y;
+    for (x = 0 ; x < i ; x++){
+        for (y = 0 ; y < j ; y++){
+            if (y == j-1){
+                printf("%.4f", mat[i][j]);
+            }
+            else{
+                printf("%.4f,", mat[i][j]);
+            }
+        }
+        printf("\n");
+    }
+}
+
+static double ** wam(double ** vectors, int d, int n, char * goal){
+    double ** wam_mat = make_wam_mat(n);
+    double weight;
+    int i,j;
+    for (i = 0; i < n; i++){
+        for (j=i+1 ; j < n ; j++){
+            weight = exp(-sqrt(distance(vectors[i], vectors[j], d)));
+            wam_mat[i][j] = weight;
+            wam_mat[j][i] = weight;
+        }
+    }
+
+    if (goal == "wam"){
+        print_mat(wam_mat, n ,n);
+    }
+    else{
+        
+    }
+}
 
 static double ** ddg(double ** vectors, int d, int n){
     double ** weighted_adj_matrix = wam(vectors, d, n);
