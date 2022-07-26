@@ -59,9 +59,38 @@ double ** make_vectors_array(FILE * file, int vector_size, int num_of_vectors){
 
 static double ** wam(double ** vectors, int d, int n){}
 
-static double ** ddg(){}
+static double ** ddg(double ** vectors, int d, int n){
+    double ** weighted_adj_matrix = wam(vectors, d, n);
+    double ** diagonal_matrix = calloc(n, sizeof(double*));
+    double sum_weights = 0;
+    for(int i=0 ; i < n ; i++){
+        diagonal_matrix[i] = calloc(d, sizeof(double));
+        for(int j=0 ; j < d ; j++){
+            sum_weights += weighted_adj_matrix[i][j];
+            if (i != j){
+                diagonal_matrix[i][j] = 0;
+            }
+        }
+        diagonal_matrix[i][i] = sum_weights;
+    }
+    return diagonal_matrix;
+}
 
-static double ** lnorm(){}
+static double ** square_diagonal_matrix(double ** diagonal_matrix, int d, int n){
+    double ** square_matrix = calloc(n, sizeof(double*));
+    for(int i=0 ; i < n ; i++){
+        diagonal_matrix[i] = calloc(d, sizeof(double));
+        for(int j=0 ; j < d ; j++){
+            if (i == j) { square_matrix[i][j] = 1 / sqrt(diagonal_matrix[i][i]); }
+            else { square_matrix[i][j] = 0; }
+        }
+    }
+    return square_matrix;
+}
+
+static double ** lnorm(double ** diagonal_matrix, int d, int n){
+    
+}
 
 static double ** jacobi(){}
 
