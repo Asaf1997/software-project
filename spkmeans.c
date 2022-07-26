@@ -57,12 +57,24 @@ double ** make_vectors_array(FILE * file, int vector_size, int num_of_vectors){
     return vectors_array;
 }
 
-static double ** make_wam_mat(int n){
+static double ** make_mat(int n){
     double ** wam_mat;
     int i,j;
-    wam_mat = calloc(n+1, sizeof(double*));
+    wam_mat = calloc(n, sizeof(double*));
+    
+    if (wam_mat == NULL){
+            printf("An Error Has Occurred");
+            return NULL;
+    }
+
     for (i = 0; i < n; i++){
-        wam_mat[i] = calloc(n+1, sizeof(double));
+        wam_mat[i] = calloc(n, sizeof(double));
+        
+        if (wam_mat[i] == NULL){
+            printf("An Error Has Occurred");
+            return NULL;
+        }
+
         for (j=0 ; j < n ; j++){
             wam_mat[i][j] = 0.0;
         }
@@ -85,13 +97,18 @@ static void print_mat(double ** mat, int i, int j){
     }
 }
 
-static double ** wam(double ** vectors, int d, int n, char * goal){
-    double ** wam_mat = make_wam_mat(n);
+static int wam(double ** vectors, int d, int n, char * goal){
+    double ** wam_mat = make_mat(n);
     double weight;
     int i,j;
+
+    if (wam_mat == NULL){
+        return 1;
+    }
+
     for (i = 0; i < n; i++){
         for (j=i+1 ; j < n ; j++){
-            weight = exp(-sqrt(distance(vectors[i], vectors[j], d)));
+            weight = exp(-sqrt(distance(vectors[i], vectors[j], d))/2);
             wam_mat[i][j] = weight;
             wam_mat[j][i] = weight;
         }
@@ -99,46 +116,134 @@ static double ** wam(double ** vectors, int d, int n, char * goal){
 
     if (goal == "wam"){
         print_mat(wam_mat, n ,n);
+        for(i=0 ; i < n ; i++){
+            free(wam_mat[i]);
+        }
+        free(wam_mat);
+        return 0;
     }
     else{
-        
+        return ddg(vectors, wam_mat, d, n, goal);
     }
 }
 
-static double ** ddg(double ** vectors, int d, int n){
-    double ** weighted_adj_matrix = wam(vectors, d, n);
-    double ** diagonal_matrix = calloc(n, sizeof(double*));
+static int ddg(double ** vectors, double ** wam_mat, int d, int n, char * goal){
+    double ** weighted_adj_matrix = wam_mat;
+    double ** diagonal_matrix = calloc(n, sizeof(double*));    
     double sum_weights = 0;
+    int i;
+
+    if (diagonal_matrix == NULL){
+        printf("An Error Has Occurred");
+        return 1;
+    }
+
     for(int i=0 ; i < n ; i++){
-        diagonal_matrix[i] = calloc(d, sizeof(double));
-        for(int j=0 ; j < d ; j++){
+        diagonal_matrix[i] = calloc(n, sizeof(double));
+        
+        if (diagonal_matrix[i] == NULL){ printf("An Error Has Occurred"); return 1;}
+
+        for(int j=0 ; j < n ; j++){
             sum_weights += weighted_adj_matrix[i][j];
             if (i != j){
-                diagonal_matrix[i][j] = 0;
+                diagonal_matrix[i][j] = 0.0;
             }
         }
         diagonal_matrix[i][i] = sum_weights;
     }
-    return diagonal_matrix;
+    
+    if (goal == "ddg"){
+        print_mat(diagonal_matrix, n, n);
+        
+        for(i=0 ; i < n ; i++){
+            free(wam_mat[i]);
+        }
+        free(wam_mat);
+        
+        for(i=0 ; i < n ; i++){
+            free(diagonal_matrix[i]);
+        }
+        free(diagonal_matrix);
+
+        return 0;
+    }
+
+    else{
+        return lnorm(vectors, wam_mat, diagonal_matrix, d, n, goal);
+    }
 }
 
-static double ** square_diagonal_matrix(double ** diagonal_matrix, int d, int n){
-    double ** square_matrix = calloc(n, sizeof(double*));
+static double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
+    double ** sqrt_matrix = calloc(n, sizeof(double*));
+
+    if (sqrt_matrix == NULL){ printf("An Error Has Occurred"); return NULL;}
+
     for(int i=0 ; i < n ; i++){
-        diagonal_matrix[i] = calloc(d, sizeof(double));
-        for(int j=0 ; j < d ; j++){
-            if (i == j) { square_matrix[i][j] = 1 / sqrt(diagonal_matrix[i][i]); }
-            else { square_matrix[i][j] = 0; }
+        sqrt_matrix[i] = calloc(n, sizeof(double));
+
+        if (sqrt_matrix[i] == NULL){ printf("An Error Has Occurred"); return NULL;}
+
+        for(int j=0 ; j < n ; j++){
+            if (i == j) { sqrt_matrix[i][j] = 1 / sqrt(diagonal_matrix[i][i]); }
+            else { sqrt_matrix[i][j] = 0.0; }
         }
     }
-    return square_matrix;
+    return sqrt_matrix;
 }
 
-static double ** lnorm(double ** diagonal_matrix, int d, int n){
-    
+static double ** lnorm(double ** vectors, double ** wam_mat, double ** ddg_mat, int d, int n, char * goal){
+    double ** sqrt_D = sqrt_diagonal_matrix(ddg_mat, n);
+    double ** lnorm_mat = make_mat(n);
+    int i,j;
+
+    if (sqrt_D == NULL || lnorm_mat == NULL){ return 1; }
+
+    for (i=0 ; i < n ; i++){
+        for(j=0 ; j < n ; j++){
+            if (i==j){
+                lnorm_mat[i][j] = 1.0;
+            }
+            lnorm_mat[i][j] = lnorm_mat[i][j] - wam_mat[i][j]*sqrt_D[i][i]*sqrt_D[j][j];
+        }
+    }
+
+    if(goal == "lnorm"){
+        print_mat(lnorm_mat, n ,n);
+
+        for(i=0 ; i < n ; i++){
+            free(wam_mat[i]);
+        }
+        free(wam_mat);
+        
+        for(i=0 ; i < n ; i++){
+            free(ddg_mat[i]);
+        }
+        free(ddg_mat);
+
+        for(i=0 ; i < n ; i++){
+            free(ddg_mat[i]);
+        }
+        free(ddg_mat);
+
+        for(i=0 ; i < n ; i++){
+            free(lnorm_mat[i]);
+        }
+        free(lnorm_mat);
+
+        for(i=0 ; i < n ; i++){
+            free(sqrt_D[i]);
+        }
+        free(sqrt_D);
+
+        return 0;
+    }
+
+    else{
+        return jacobi(vectors, wam_mat, ddg_mat, sqrt_D, lnorm_mat , d, n, goal);
+    }
 }
 
-static double ** jacobi(){}
+static double ** jacobi(double ** vectors, double ** wam_mat, double ** ddg_mat, double ** sqrt_D, double ** lnorm_mat, int d, int n, char * goal){}
 
 
 int main(int argc, char *argv[]){
