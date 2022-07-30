@@ -3,197 +3,189 @@
 #include <string.h>
 #include <float.h>
 #include <math.h>
+#include "spkmeans.h"
+
+
+const int MAX_ITER_KMEANS = 300;
+const int MAX_ITER_JACOBI = 100;
+
 
 /* returns the distance between two vectors */
-static double distance(double vector1[], double vector2[], int length){
+double distance(double vector1[], double vector2[], int length){
     double sum=0.0;
     int i;
     for(i=0; i < length; i++){
         sum += (vector1[i] - vector2[i])*(vector1[i] - vector2[i]);
     }
+    sum = sqrt(sum);
     return sum;
 }
 
-int get_vector_size(FILE * file){
-    char line[1000];
-    int counter = 1;
-    int i;
-    fseek(file, 0, SEEK_SET); 
-    /* get to the start of the file */
-    if(fgets(line, 1000, file)){
-        for (i = 0 ; i < 1000 ; i++){
-            if (line[i] == ','){
-                counter++;
-            }
+
+void assertion_check(int b){
+    if (b){
+        printf("An Error Has Occurred");
+        exit(1);
+    }
+}
+
+
+void read_data(Graph * graph, char * file_path){
+    double value;
+    char c;
+    int first_bool = 1, n = 1, d = 0, i, j;
+    double ** vectors_array;
+    FILE * f = fopen(file_path, "r");
+    my_assert(f != NULL);
+
+    while (fscanf(f, "%lf%c", &value, &c) == 2)
+    {
+        if (first_bool == 1) {
+            d++;
+        }
+
+        if (c == '\n') {
+            first_bool = 0;
+            n++;
         }
     }
-    return counter;
-}
 
-int get_num_of_vectors(FILE * file){
-    char line[1000];
-    int counter = 0;
-    fseek(file, 0, SEEK_SET);
-    /* get to the start of the file */
-    while (fgets(line, 1000, file)){
-       counter++;
-    }
-    return counter;
-}
+    rewind(f);
 
-double ** make_vectors_array(FILE * file, int vector_size, int num_of_vectors){
-    int i=0,j=0;
-    double **vectors_array;
-    char trash;
-    fseek(file, 0, SEEK_SET);  /* get to the start of the file */
-    vectors_array = calloc(num_of_vectors, sizeof(double*));
-    for(i=0 ; i < num_of_vectors ; i++){
-        vectors_array[i] = calloc(vector_size, sizeof(double));
-        for(j=0 ; j<vector_size ; j++){
-            fscanf(file, "%lf", &vectors_array[i][j]);
-            fscanf(file, "%c", &trash);
+    vectors_array = make_mat(n, d);
+
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < d; j++) {
+            fscanf(f, "%lf%c", &value, &c);
+            vectors_array[i][j] = value;
         }
     }
-    return vectors_array;
+    fclose(f);
+
+    graph->vertices = vectors_array;
+    graph->dim = d;
+    graph->n = n;
+    return;
 }
 
-static double ** make_mat(int n){
-    double ** wam_mat;
+
+double ** make_mat(int m, int n){
+    double ** mat;
     int i,j;
-    wam_mat = calloc(n, sizeof(double*));
     
-    if (wam_mat == NULL){
-            printf("An Error Has Occurred");
-            return NULL;
-    }
+    mat = calloc(m, sizeof(double*));
+    assertion_check(mat == NULL);
 
-    for (i = 0; i < n; i++){
-        wam_mat[i] = calloc(n, sizeof(double));
-        
-        if (wam_mat[i] == NULL){
-            printf("An Error Has Occurred");
-            return NULL;
-        }
+    for (i = 0; i < m; i++){
+        mat[i] = calloc(n, sizeof(double));
+        assertion_check(mat[i] == NULL);
 
         for (j=0 ; j < n ; j++){
-            wam_mat[i][j] = 0.0;
+            mat[i][j] = 0.0;
         }
     }
-    return wam_mat;
+    return mat;
 }
 
-static void print_mat(double ** mat, int i, int j){
+
+double * make_vector(int n){
+    double * vector = calloc(n, sizeof(double));
+    assertion_check(vector == NULL);
+    return vector;
+}
+
+
+void print_mat(double ** mat, int i, int j){
     int x,y;
     for (x = 0 ; x < i ; x++){
         for (y = 0 ; y < j ; y++){
-            if (y == j-1){
-                printf("%.4f", mat[i][j]);
-            }
-            else{
-                printf("%.4f,", mat[i][j]);
+            printf("%.4f", mat[x][y]);
+            if (y != j-1){
+                printf(",");
             }
         }
         printf("\n");
     }
 }
 
-static int wam(double ** vectors, int d, int n, char * goal){
-    double ** wam_mat = make_mat(n);
-    double weight;
-    int i,j;
 
-    if (wam_mat == NULL){
-        return 1;
-    }
-
-    for (i = 0; i < n; i++){
-        for (j=i+1 ; j < n ; j++){
-            weight = exp(-sqrt(distance(vectors[i], vectors[j], d))/2);
-            wam_mat[i][j] = weight;
-            wam_mat[j][i] = weight;
+void print_mat_transposed(double ** mat, int i, int j){
+    int x,y;
+    for (x = 0 ; x < j ; x++){
+        for (y = 0 ; y < i ; y++){
+            printf("%.4f", mat[y][x]);
+            if (y != j-1){
+                printf(",");
+            }
         }
-    }
-
-    if (goal == "wam"){
-        print_mat(wam_mat, n ,n);
-        for(i=0 ; i < n ; i++){
-            free(wam_mat[i]);
-        }
-        free(wam_mat);
-        return 0;
-    }
-    else{
-        return ddg(vectors, wam_mat, d, n, goal);
+        printf("\n");
     }
 }
 
-static int ddg(double ** vectors, double ** wam_mat, int d, int n, char * goal){
-    double ** weighted_adj_matrix = wam_mat;
-    double ** diagonal_matrix = calloc(n, sizeof(double*));    
+
+void free_mat(double ** mat, int x){
+    int i;
+    for (i=0 ; i < x ; i++){
+        free(mat[i]);
+    }
+    free(mat);
+}
+
+
+void wam(Graph * graph){
+    double ** wam_mat;
+    double ** vectors = graph->vertices;
+    double weight;
+    int i,j;
+    int n = graph->n;
+
+    wam_mat = make_mat(n, n);
+
+    for (i = 0; i < n; i++){
+        for (j=i+1 ; j < n ; j++){
+            weight = exp( (-1) * distance(vectors[i], vectors[j], d) /2 );
+            wam_mat[i][j] = weight;
+            wam_mat[j][i] = weight;
+        }
+        wam_mat[i][i] = 0;
+    }
+
+    graph->vertices = wam_mat;
+    return;
+}
+
+
+void ddg(Graph * graph){
+    double ** weighted_adj_matrix = graph->wam_mat;
+    double ** diagonal_matrix = make_mat(n, n);    
     double sum_weights = 0;
     int i;
 
-    if (diagonal_matrix == NULL){
-        printf("An Error Has Occurred");
-        return 1;
-    }
-
     for(int i=0 ; i < n ; i++){
-        diagonal_matrix[i] = calloc(n, sizeof(double));
-        
-        if (diagonal_matrix[i] == NULL){ printf("An Error Has Occurred"); return 1;}
-
+        sum_weights = 0;
         for(int j=0 ; j < n ; j++){
             sum_weights += weighted_adj_matrix[i][j];
-            if (i != j){
-                diagonal_matrix[i][j] = 0.0;
-            }
         }
         diagonal_matrix[i][i] = sum_weights;
     }
     
-    if (goal == "ddg"){
-        print_mat(diagonal_matrix, n, n);
-        
-        for(i=0 ; i < n ; i++){
-            free(wam_mat[i]);
-        }
-        free(wam_mat);
-        
-        for(i=0 ; i < n ; i++){
-            free(diagonal_matrix[i]);
-        }
-        free(diagonal_matrix);
-
-        return 0;
-    }
-
-    else{
-        return lnorm(vectors, wam_mat, diagonal_matrix, d, n, goal);
-    }
+    graph->ddg_mat = diagonal_matrix;
 }
 
-static double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
-    double ** sqrt_matrix = calloc(n, sizeof(double*));
 
-    if (sqrt_matrix == NULL){ printf("An Error Has Occurred"); return NULL;}
+double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
+    double ** sqrt_matrix = make_mat(n, n);
 
     for(int i=0 ; i < n ; i++){
-        sqrt_matrix[i] = calloc(n, sizeof(double));
-
-        if (sqrt_matrix[i] == NULL){ printf("An Error Has Occurred"); return NULL;}
-
-        for(int j=0 ; j < n ; j++){
-            if (i == j) { sqrt_matrix[i][j] = 1 / sqrt(diagonal_matrix[i][i]); }
-            else { sqrt_matrix[i][j] = 0.0; }
-        }
+        sqrt_matrix[i][i] = 1 / sqrt(diagonal_matrix[i][i]);
     }
     return sqrt_matrix;
 }
 
-static double ** lnorm(double ** vectors, double ** wam_mat, double ** ddg_mat, int d, int n, char * goal){
+
+static double ** lnorm(Graph * graph){
     double ** sqrt_D = sqrt_diagonal_matrix(ddg_mat, n);
-    double ** lnorm_mat = make_mat(n);
+    double ** lnorm_mat = make_mat(n, n);
     int i,j;
 
     if (sqrt_D == NULL || lnorm_mat == NULL){ return 1; }
@@ -206,68 +198,90 @@ static double ** lnorm(double ** vectors, double ** wam_mat, double ** ddg_mat, 
             lnorm_mat[i][j] = lnorm_mat[i][j] - wam_mat[i][j]*sqrt_D[i][i]*sqrt_D[j][j];
         }
     }
-
-    if(goal == "lnorm"){
-        print_mat(lnorm_mat, n ,n);
-
-        for(i=0 ; i < n ; i++){
-            free(wam_mat[i]);
-        }
-        free(wam_mat);
-        
-        for(i=0 ; i < n ; i++){
-            free(ddg_mat[i]);
-        }
-        free(ddg_mat);
-
-        for(i=0 ; i < n ; i++){
-            free(ddg_mat[i]);
-        }
-        free(ddg_mat);
-
-        for(i=0 ; i < n ; i++){
-            free(lnorm_mat[i]);
-        }
-        free(lnorm_mat);
-
-        for(i=0 ; i < n ; i++){
-            free(sqrt_D[i]);
-        }
-        free(sqrt_D);
-
-        return 0;
-    }
-
-    else{
-        return jacobi(vectors, wam_mat, ddg_mat, sqrt_D, lnorm_mat , d, n, goal);
-    }
 }
 
-static double ** jacobi(double ** vectors, double ** wam_mat, double ** ddg_mat, double ** sqrt_D, double ** lnorm_mat, int d, int n, char * goal){}
+
+static double ** jacobi(double ** A, double ** eigenvectors, double * eigenvalues, int n){}
 
 
 int main(int argc, char *argv[]){
-    FILE *input_file;
-    int num_of_vectors, vector_size, *cluster_count;
-    int i, K, max_iter, iteration, closest_cluster;
-    char *input_name, *goal;
-    double **vectors_array, **centroids_array, **cluster_sum;
+    Graph graph = {0};
+    Goal goal;
+    int n, dim;
+    char *input_name, *goal_str;
+    double *eigenvalues;
+    double **eigenvectors;
 
     /* checking correctness of the input */
     if(argc != 3 ){        
         printf("Invalid Input!");
-        return 1;
+        exit(1);
     }
 
-    input_name = argv[1];
-    goal = argv[2];
- 
-    if((input_file = fopen(input_name, "r")) == NULL){
+    goal_str = argv[1];
+    input_name = argv[2];
+
+    if (goal_str != "wam" && goal_str != "ddg" && goal_str != "lnorm" && goal_str != "jacobi"){
         printf("Invalid Input!");
-        return 1;
+        exit(1);
     }
 
-    vector_size = get_vector_size(input_file);
-    num_of_vectors = get_num_of_vectors(input_file);
-    vectors_array = make_vectors_array(input_file, vector_size, num_of_vectors);
+    goal = (int)goal_str[0];
+
+    read_data(&graph, input_name);
+
+    dim = graph.dim;
+    n = graph.n;
+
+    if (goal == e_jacobi){
+        eigenvectors = make_mat(n ,n);
+        eigenvalues = make_vector(n);
+        jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+
+        print_mat(eigenvalues, 1 ,n);
+        printf("\n");
+        print_mat_transposed(eigenvectors, n, n);
+
+        free(eigenvalues);
+        free_mat(eigenvectors, n);
+        free_mat(graph->vertices, n);
+        free(graph);
+
+        return 0;
+    }
+
+    wam(graph);
+    if (goal == e_wam){
+        print_mat(graph->wam_mat, n, n);
+     
+        free_mat(graph->vertices, n);
+        free_mat(graph->wam_mat, n);
+        free(graph);
+
+        return 0;
+    }
+
+    ddg(graph);
+    if (goal == e_ddg){
+        print_mat(graph->ddg_mat, n, n);
+
+        free_mat(graph->vertices, n);
+        free_mat(graph->wam_mat, n);
+        free_mat(graph->ddg_mat, n);
+        free(graph);
+
+        return 0;
+    }
+
+    lnorm(graph);
+
+    print_mat(graph->lnorm_mat, n, n);
+
+    free_mat(graph->vertices, n);
+    free_mat(graph->wam_mat, n);
+    free_mat(graph->ddg_mat, n);
+    free_mat(graph->lnorm_mat, n);
+    free(graph);
+
+    return 0;
 }
