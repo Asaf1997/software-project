@@ -88,6 +88,25 @@ double ** make_mat(int m, int n){
 }
 
 
+double ** make_mat_identity(int m, int n){
+    double ** mat;
+    int i,j;
+    
+    mat = calloc(m, sizeof(double*));
+    assertion_check(mat == NULL);
+
+    for (i = 0; i < m; i++){
+        mat[i] = calloc(n, sizeof(double));
+        assertion_check(mat[i] == NULL);
+
+        for (j=0 ; j < n ; j++){
+            if (i == j) { mat[i][j] = 1.0; } else { mat[i][j] = 0.0; }
+        }
+    }
+    return mat;
+}
+
+
 double * make_vector(int n){
     double * vector = calloc(n, sizeof(double));
     assertion_check(vector == NULL);
@@ -209,6 +228,7 @@ double ** lnorm(Graph * graph){
     return;
 }
 
+
 void find_largest_element_pivot(double ** matrix, int n, int * piv){
     int max = 0;
     for (int i = 0; i < n; i++){
@@ -221,9 +241,11 @@ void find_largest_element_pivot(double ** matrix, int n, int * piv){
     }
 }
 
+
 int sign(double num){
     if(num >= 0){ return 1; } else { return -1; }
 }
+
 
 double off(double ** matrix, int n){
     double sum =0;
@@ -237,46 +259,58 @@ double off(double ** matrix, int n){
     return sum;
 }
 
+
 /* Assume that matrix argument is symetric */
-double ** iter_jacobi(double ** matrix, int n){
-    int i,j,t,c,s,r,k;
-    int *piv = calloc(2, sizeof(int));
-    double ** matrix_tag;
+void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, 
+                        double **eigenvectors_tag, int n, int i, int j){
+    int t,c,s,r,k;
     double theta;
     
-    find_largest_element_pivot(matrix, n, piv);
-    i = piv[0];
-    j = piv[1];
     theta = (matrix[j][j] - matrix[i][i]) / (2*matrix[i][j]);
     t = (sign(theta)) / (abs(theta) + sqrt(pow(theta, 2) + 1));
     c = 1 / sqrt(pow(t, 2) + 1);
     s = t*c;
-    
-    matrix_tag = make_mat(n, n);
 
-    for (r = 0; r < n; r++){
-        for (k=0; k<n; k++){
-            matrix_tag[r][k] = matrix[r][k];
-        }
-    }
-
+    /* Update Matrix Tag */
     for (r = 0; r < n; r++){
         if (r != i && r != j){
             matrix_tag[r][i] = c*matrix[r][i] - s*matrix[r][j];
             matrix_tag[r][j] = c*matrix[r][j] + s*matrix[r][i];
+            matrix_tag[i][r] = matrix_tag[r][i];
+            matrix_tag[j][r] = matrix_tag[r][j];
         }
     }
-
     matrix_tag[i][i] = pow(c, 2)*matrix[i][i] + pow(s, 2)*matrix[j][j] - 2*s*c*matrix[i][j];
     matrix_tag[j][j] = pow(s, 2)*matrix[i][i] + pow(c, 2)*matrix[j][j] + 2*s*c*matrix[i][j];
     matrix_tag[i][j] = 0;
     matrix_tag[j][i] = 0;
 
-    free(piv);
-    return matrix_tag;
+    /* Update Eigenvectors Matrix Tag */
+    for (r = 0; r < n; r++) {
+        eigenvectors_tag[r][i] = c * eigenvectors[r][i] - s * eigenvectors[r][j];
+        eigenvectors_tag[r][j] = c * eigenvectors[r][j] + s * eigenvectors[r][i];
+    }
+
+    /* Update Eigenvectors Matrix */
+    for (r = 0; r < n; r++) {
+        eigenvectors[r][i] = eigenvectors_tag[r][i];
+        eigenvectors[r][j] = eigenvectors_tag[r][j];
+    }
 }
 
-static int check_convergence(double ** matrix, double ** matrix_tag, int n){
+
+void update_matrix(double ** matrix, double ** matrix_tag, int n, int i, int j){
+    int r;
+    for (r = 0; r < n; r++){
+        matrix[r][i] = matrix_tag[r][i];
+        matrix[r][j] = matrix_tag[r][j];
+        matrix[i][r] = matrix_tag[r][i];
+        matrix[j][r] = matrix_tag[r][j];
+    }
+}
+
+
+int check_convergence(double ** matrix, double ** matrix_tag, int n){
     double epsilon = 1.0*pow(10,-5);
     if (off(matrix, n) - off(matrix_tag, n) <= epsilon){
         return 1;
@@ -284,15 +318,61 @@ static int check_convergence(double ** matrix, double ** matrix_tag, int n){
     return 0;
 }
 
+
 /* Assume that matrix argument is symetric */
 static double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
-    double ** matrix_tag = iter_jacobi(matrix, n);
+    double ** matrix_tag;
+    double ** eigenvectors_tag;
+    int *piv;
+    int i,j,r,k;
+
+    /* Find Pivot */
+    piv = calloc(2, sizeof(int));
+    find_largest_element_pivot(matrix, n, piv);
+    i = piv[0];
+    j = piv[1];
+
+    /* Initialize Matrix Tag */
+    matrix_tag = make_mat(n, n);
+    for (r = 0; r < n; r++){
+        for (k=0; k<n; k++){
+            matrix_tag[r][k] = matrix[r][k];
+        }
+    }
+
+    /* Initialize Eigenvectors Matrix */
+    eigenvectors = make_mat_identity(n, n);
+
+    /* Initialize Eigenvectors Matrix Tag */
+    eigenvectors_tag = make_mat_identity(n, n);
+
+    /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
+    iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
+
     int count_iter = 1;
     while (check_convergence(matrix, matrix_tag, n) != 1 && count_iter <= MAX_ITER_JACOBI){
-        matrix = matrix_tag;
-        matrix_tag = iter_jacobi(matrix_tag, n);
+
+        /* Update Matrix */
+        update_matrix(matrix, matrix_tag, n, i, j);
+
+        /* Update Pivot */
+        find_largest_element_pivot(matrix, n, piv);
+        i = piv[0];
+        j = piv[1];
+
+        /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
+        iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
+
         count_iter++;
     }
+
+    /* Matrix Tag is Diagonal Matrix */
+    for (r = 0; r < n; r++) {
+        eigenvalues[r] = matrix_tag[r][r];
+    }
+    free(piv);
+    free(matrix_tag);
+    free(eigenvectors_tag);
 }
 
 
