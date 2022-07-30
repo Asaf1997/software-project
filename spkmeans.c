@@ -138,6 +138,7 @@ void wam(Graph * graph){
     double weight;
     int i,j;
     int n = graph->n;
+    int d = graph->dim;
 
     wam_mat = make_mat(n, n);
 
@@ -157,9 +158,12 @@ void wam(Graph * graph){
 
 void ddg(Graph * graph){
     double ** weighted_adj_matrix = graph->wam_mat;
-    double ** diagonal_matrix = make_mat(n, n);    
+    double ** diagonal_matrix;    
     double sum_weights = 0;
     int i;
+    int n = graph->n;
+
+    diagonal_matrix = make_mat(n, n); 
 
     for(int i=0 ; i < n ; i++){
         sum_weights = 0;
@@ -184,11 +188,12 @@ double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
 
 
 static double ** lnorm(Graph * graph){
-    double ** sqrt_D = sqrt_diagonal_matrix(ddg_mat, n);
-    double ** lnorm_mat = make_mat(n, n);
+    double ** sqrt_D = sqrt_diagonal_matrix(graph->ddg_mat, graph->n);
+    double ** lnorm_mat;
+    double ** wam_mat = graph->wam_mat;
     int i,j;
-
-    if (sqrt_D == NULL || lnorm_mat == NULL){ return 1; }
+    int n = graph->n;
+    lnorm_mat = make_mat(n,n);
 
     for (i=0 ; i < n ; i++){
         for(j=0 ; j < n ; j++){
@@ -198,14 +203,21 @@ static double ** lnorm(Graph * graph){
             lnorm_mat[i][j] = lnorm_mat[i][j] - wam_mat[i][j]*sqrt_D[i][i]*sqrt_D[j][j];
         }
     }
+
+    graph->lnorm_mat = lnorm_mat;
+    free_mat(sqrt_D, n);
+    return;
 }
 
 
-static double ** jacobi(double ** A, double ** eigenvectors, double * eigenvalues, int n){}
+static double ** jacobi(double ** A, double ** eigenvectors, double * eigenvalues, int n){
+
+    
+}
 
 
 int main(int argc, char *argv[]){
-    Graph graph = {0};
+    Graph * graph = malloc(sizeof(Graph*));
     Goal goal;
     int n, dim;
     char *input_name, *goal_str;
@@ -228,10 +240,10 @@ int main(int argc, char *argv[]){
 
     goal = (int)goal_str[0];
 
-    read_data(&graph, input_name);
+    read_data(graph, input_name);
 
-    dim = graph.dim;
-    n = graph.n;
+    dim = graph->dim;
+    n = graph->n;
 
     if (goal == e_jacobi){
         eigenvectors = make_mat(n ,n);
@@ -239,7 +251,6 @@ int main(int argc, char *argv[]){
         jacobi(graph->vertices, eigenvectors, eigenvalues, n);
 
         print_mat(eigenvalues, 1 ,n);
-        printf("\n");
         print_mat_transposed(eigenvectors, n, n);
 
         free(eigenvalues);
