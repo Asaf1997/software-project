@@ -187,7 +187,7 @@ double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
 }
 
 
-static double ** lnorm(Graph * graph){
+double ** lnorm(Graph * graph){
     double ** sqrt_D = sqrt_diagonal_matrix(graph->ddg_mat, graph->n);
     double ** lnorm_mat;
     double ** wam_mat = graph->wam_mat;
@@ -209,27 +209,23 @@ static double ** lnorm(Graph * graph){
     return;
 }
 
-static double * find_largest_element_pivot(double ** matrix, int n){
+void find_largest_element_pivot(double ** matrix, int n, int * piv){
     int max = 0;
-    double * pivot = calloc(2, sizeof(int));
-    /* check NULL */
     for (int i = 0; i < n; i++){
         for (int j = i + 1 ; j < n; j++){
             if ( matrix[i][j] > max ){
-                pivot[0] = i;
-                pivot[1] = j;
+                piv[0] = i;
+                piv[1] = j;
             }
         }
     }
-    return pivot;
-
 }
 
-static int sign(double num){
+int sign(double num){
     if(num >= 0){ return 1; } else { return -1; }
 }
 
-static double off(double ** matrix, int n){
+double off(double ** matrix, int n){
     double sum =0;
     for (int i =0; i < n; i++){
         for (int j =0; j < n; j++){
@@ -242,21 +238,23 @@ static double off(double ** matrix, int n){
 }
 
 /* Assume that matrix argument is symetric */
-static double ** iter_jacobi(double ** matrix, int n){
-    double * pivot = find_largest_element_pivot(matrix, n);
-    int i = pivot[0];
-    int j = pivot[1];
-    double theta = (matrix[j][j] - matrix[i][i]) / (2*matrix[i][j]);
-    int t = (sign(theta)) / (abs(theta) + sqrt(pow(theta, 2) + 1));
-    int c = 1 / sqrt(pow(t, 2) + 1);
-    int s = t*c;
+double ** iter_jacobi(double ** matrix, int n){
+    int i,j,t,c,s,r,k;
+    int *piv = calloc(2, sizeof(int));
     double ** matrix_tag;
-    int r, k;
-    matrix_tag = calloc(n, sizeof(double*));
-    /* check NULL */
+    double theta;
+    
+    find_largest_element_pivot(matrix, n, piv);
+    i = piv[0];
+    j = piv[1];
+    theta = (matrix[j][j] - matrix[i][i]) / (2*matrix[i][j]);
+    t = (sign(theta)) / (abs(theta) + sqrt(pow(theta, 2) + 1));
+    c = 1 / sqrt(pow(t, 2) + 1);
+    s = t*c;
+    
+    matrix_tag = make_mat(n, n);
+
     for (r = 0; r < n; r++){
-        matrix_tag[r] = calloc(n, sizeof(double));
-        /* check NULL */
         for (k=0; k<n; k++){
             matrix_tag[r][k] = matrix[r][k];
         }
@@ -268,10 +266,13 @@ static double ** iter_jacobi(double ** matrix, int n){
             matrix_tag[r][j] = c*matrix[r][j] + s*matrix[r][i];
         }
     }
+
     matrix_tag[i][i] = pow(c, 2)*matrix[i][i] + pow(s, 2)*matrix[j][j] - 2*s*c*matrix[i][j];
     matrix_tag[j][j] = pow(s, 2)*matrix[i][i] + pow(c, 2)*matrix[j][j] + 2*s*c*matrix[i][j];
     matrix_tag[i][j] = 0;
     matrix_tag[j][i] = 0;
+
+    free(piv);
     return matrix_tag;
 }
 
@@ -284,17 +285,14 @@ static int check_convergence(double ** matrix, double ** matrix_tag, int n){
 }
 
 /* Assume that matrix argument is symetric */
-static double ** jacobi(double ** matrix, int n, double ** eigenvectors, double ** eigenvalues){
-    int max_iter = 100;
+static double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
     double ** matrix_tag = iter_jacobi(matrix, n);
     int count_iter = 1;
-    while (check_convergence(matrix, matrix_tag, n) != 1 && count_iter <=100)
-    {
+    while (check_convergence(matrix, matrix_tag, n) != 1 && count_iter <= MAX_ITER_JACOBI){
         matrix = matrix_tag;
         matrix_tag = iter_jacobi(matrix_tag, n);
         count_iter++;
     }
-
 }
 
 
