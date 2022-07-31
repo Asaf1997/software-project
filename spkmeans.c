@@ -320,7 +320,7 @@ int check_convergence(double ** matrix, double ** matrix_tag, int n){
 
 
 /* Assume that matrix argument is symetric */
-static double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
+double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
     double ** matrix_tag;
     double ** eigenvectors_tag;
     int *piv;
@@ -373,6 +373,47 @@ static double ** jacobi(double ** matrix, int n, double ** eigenvectors, double 
     free(piv);
     free(matrix_tag);
     free(eigenvectors_tag);
+}
+
+
+void sort_descending(double * eigenvalues, double ** eigenvectors, int n)
+{
+    int i, j, temp_vector;
+    double temp_value;
+    for (i = 0; i < n; ++i)
+    {
+        for (j = i+1; j < n; ++j)
+        {
+            if (eigenvalues[i] < eigenvalues[j])
+            {
+                temp_value = eigenvalues[i];
+                temp_vector = eigenvectors[i];
+
+                eigenvalues[i] = eigenvalues[j];
+                eigenvectors[i] = eigenvectors[j];
+
+                eigenvalues[j] = temp_value;
+                eigenvectors[j] = temp_vector;
+            }
+        }
+    }
+}
+
+
+int largest_k_eigenvectors(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
+    int i, max_delta, k;
+    double delta;
+    sort_descending(eigenvalues, eigenvectors, n);
+    max_delta = 0;
+    k = 0;
+    for(i=0; i<(n/2)-1; i++){
+        delta = abs(eigenvalues[i]- eigenvalues[i+1]);
+        if( delta > max_delta ){
+            max_delta = delta;
+            k = i + 1;
+        }
+    }
+    return k;
 }
 
 
