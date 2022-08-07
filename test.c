@@ -1,0 +1,2 @@
+double ** asaf;
+free(asaf);
