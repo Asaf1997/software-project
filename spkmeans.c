@@ -4,6 +4,7 @@
 #include <float.h>
 #include <math.h>
 #include "spkmeans.h"
+#include <Python.h>
 
 
 const int MAX_ITER_KMEANS = 300;
