@@ -78,11 +78,14 @@ static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues
 
 
 static PyObject* goal_fit(PyObject* self, PyObject* args){
-    int dimension, num_of_vectors, i, goal_num;
+    int dimension, n, i, goal_num, K, rows, culs;
     int rows_addition = 0;
     double **vectors_array, **final_array;
     double *eigenvalues = NULL;
+    double *eigenvalues_sorted = NULL;
     double **eigenvectors = NULL;
+    double **U = NULL;
+    double **T = NULL;
     Graph * graph = malloc(sizeof(Graph*));
     Goal goal;
 
@@ -90,21 +93,25 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     PyObject * py_final_array;
 
     /* get arguments to variables */
-    if (!PyArg_ParseTuple(args, "iiiO", &dimension, &num_of_vectors, &goal_num, &py_vectors_array)){
+    if (!PyArg_ParseTuple(args, "iiiiO", &dimension, &n, &goal_num, &K, &py_vectors_array)){
         return NULL;
     }
 
+    assertion_check(py_vectors_array == NULL);
 
     /* making c arrays with python input */
-    vectors_array = convert_list_to_c(py_vectors_array, num_of_vectors, dimension);
+    vectors_array = convert_list_to_c(py_vectors_array, n, dimension);
     assertion_check(vectors_array == NULL);
 
     graph->dim = dimension;
-    graph->n = num_of_vectors;
+    graph->n = n;
     graph->vertices = vectors_array;
     graph->ddg_mat = NULL;
     graph->lnorm_mat = NULL;
     graph->wam_mat = NULL;
+
+    rows = n;
+    culs = n;
 
     if (goal != e_jacobi){
         wam(graph);
@@ -121,6 +128,27 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
         if(goal == e_lnorm){
             final_array = graph->lnorm_mat;
         }
+
+        if(goal == e_spk){
+            eigenvectors = make_mat(n ,n);
+            eigenvalues = make_vector(n);
+            jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+
+            copy_mat(eigenvalues, eigenvalues_sorted, 1, n);
+            sort_descending(eigenvalues_sorted, n);
+            
+            if (K == 0){
+                K = largest_k_eigenvectors(eigenvalues_sorted, n);
+            }
+            
+            U = make_mat(n, K);
+            T = make_mat(n, K);
+            make_U(eigenvectors, eigenvalues, eigenvalues_sorted, U, n, K);
+            make_T(U, T, n, K);
+
+            final_array = T;
+            culs = K;
+        }
     }
 
     else{
@@ -129,27 +157,25 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
         jacobi(graph->vertices, eigenvectors, eigenvalues, n);
 
         make_jacobi_final_array(eigenvectors, eigenvalues, final_array, n);
-        rows_addition = 1;
+        rows = n+1;
     }
 
-    py_final_array = convert_array_to_py(final_array, num_of_vectors + rows_addition, num_of_vectors);
+    py_final_array = convert_array_to_py(final_array, rows, culs);
 
     free_mat(vectors_array, n);
-    free_mat(final_array, n + rows_addition);
+    free_mat(final_array, rows); /* what happens if we free the same thing twice? */
     free_mat(eigenvectors, n);
     free_mat(graph->vertices, n);
     free_mat(graph->wam_mat, n);
     free_mat(graph->ddg_mat, n);
     free_mat(graph->lnorm_mat, n);
+    free_mat(U, n);
+    free_mat(T, n);
     free(graph);
     free(eigenvalues);
+    free(eigenvalues_sorted);
     
     return py_final_array;
-}
-
-
-static PyObject* spk_fit(PyObject* self, PyObject* args){
-
 }
 
 
@@ -158,12 +184,6 @@ static PyMethodDef mykmeanssp_Methods[] = {
     (PyCFunction) goal_fit,
     METH_VARARGS,
     PyDoc_STR("if goal != spk")},
-    {NULL,NULL,0,NULL}
-    ,
-    {"spk_fit",
-    (PyCFunction) spk_fit,
-    METH_VARARGS,
-    PyDoc_STR("if goal == spk")},
     {NULL,NULL,0,NULL}
 };
 

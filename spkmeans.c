@@ -262,6 +262,17 @@ void wam(Graph * graph){
 }
 
 
+void copy_mat(double ** old, double ** copy, int rows, int culs){
+    int i,j;
+    copy = make_mat(rows, culs);
+    for(i=0 ; i<rows ; i++){
+        for(j=0 ; j<culs ; j++){
+            copy[i][j] = old[i][j];
+        }
+    }
+}
+
+
 void ddg(Graph * graph){
     double ** weighted_adj_matrix = graph->wam_mat;
     double ** diagonal_matrix;    
@@ -463,37 +474,34 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
     free(eigenvectors_tag);
 }
 
-void sort_descending(double * eigenvalues, double ** eigenvectors, int n)
-{
+
+void sort_descending(double * array, int n){
     int i, j, temp_vector;
     double temp_value;
     for (i = 0; i < n; ++i)
     {
         for (j = i+1; j < n; ++j)
         {
-            if (eigenvalues[i] < eigenvalues[j])
+            if (array[i] < array[j])
             {
-                temp_value = eigenvalues[i];
-                temp_vector = eigenvectors[i];
-
-                eigenvalues[i] = eigenvalues[j];
-                eigenvectors[i] = eigenvectors[j];
-
-                eigenvalues[j] = temp_value;
-                eigenvectors[j] = temp_vector;
+                temp_value = array[i];
+                array[i] = array[j];
+                array[j] = temp_value;
             }
         }
     }
 }
 
-
-int largest_k_eigenvectors(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
-    int i, max_delta, k;
+/* assuming that eigenvalues are in descending order */
+int largest_k_eigenvectors(double * eigenvalues, int n){
+    int i, max_delta, k, N;
     double delta;
-    sort_descending(eigenvalues, eigenvectors, n);
-    max_delta = 0;
+
+    max_delta = -1;
     k = 0;
-    for(i=0; i<(n/2)-1; i++){
+    N = n/2;
+
+    for(i=0; i<N; i++){
         delta = abs(eigenvalues[i]- eigenvalues[i+1]);
         if( delta > max_delta ){
             max_delta = delta;
@@ -502,3 +510,41 @@ int largest_k_eigenvectors(double ** matrix, int n, double ** eigenvectors, doub
     }
     return k;
 }
+
+
+void make_U(double ** eigenvectors, double * eigenvalues, double * eigenvalues_sorted, double ** U, int N, int K){
+    int i,j,r;
+    for (i=0 ; i < K ; i++){
+        for (r = 0 ; r < N ; r++){
+            if (eigenvalues_sorted[i] == eigenvalues[r]){
+                for (j=0 ; j<N ; j++){
+                    U[j][i] = eigenvectors[j][r];
+                }
+                eigenvalues[r] = -1;
+                break;
+            }
+        }
+    }
+}
+
+
+void make_T(double ** U, double ** T, int N, int K){
+    int i,j;
+    double ** zero_vector = make_vector(N);
+    double norm;
+    for (i=0 ; i<N ; i++){
+        norm = distance(U[i], zero_vector, K);
+        for (j=0 ; j<K ; j++){
+            T[i][j] = U[i][j]/norm;
+        }
+    }
+    free(zero_vector);
+}
+
+
+double ** get_T(Graph * graph){
+    
+
+
+}
+

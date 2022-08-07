@@ -11,7 +11,8 @@ typedef enum Goal
     e_wam = (int)'w',
     e_ddg = (int)'d',
     e_lnorm = (int)'l',
-    e_jacobi = (int)'j'
+    e_jacobi = (int)'j',
+    e_spk = (int)'s'
 } Goal;
 
 static double distance(double vector1[], double vector2[], int length);
@@ -38,5 +39,9 @@ double off(double ** matrix, int n);
 void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, double **eigenvectors_tag, int n, int i, int j);
 void update_matrix(double ** matrix, double ** matrix_tag, int n, int i, int j);
 int check_convergence(double ** matrix, double ** matrix_tag, int n);
-
+void copy_mat(double ** old, double ** copy, int rows, int culs);
+void sort_descending(double * array, int n);
+int largest_k_eigenvectors(double * eigenvalues, int n);
+void make_U(double ** eigenvectors, double * eigenvalues, double * eigenvalues_sorted, double ** U, int N, int K);
+void make_T(double ** U, double ** T, int N, int K);
 
