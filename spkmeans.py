@@ -27,27 +27,27 @@ def get_args():
         error(True)
 
 
+if __name__ == '__main__':
+    # write the numpy format
+    float_formatter = "{:.4f}".format
+    np.set_printoptions(formatter={'float_kind': float_formatter})
 
-# write the numpy format
-float_formatter = "{:.4f}".format
-np.set_printoptions(formatter={'float_kind': float_formatter})
+    # checking arguments and putting them into variables
+    k, goal_str, input_name = get_args()
+    vectors = "" # using C func
 
-# checking arguments and putting them into variables
-k, goal_str, input_name = get_args()
-vectors = "" # using C func
+    # if k == 0 then we need to use C func to bring k from L-Norm
+    if k == 0:
+        pass
 
-# if k == 0 then we need to use C func to bring k from L-Norm
-if k == 0:
-    pass
+    if k >= len(vectors):
+        error(True)
 
-if k >= len(vectors):
-    error(True)
+    initial_centroids = k_means_plus_plus(vectors, num_of_clusters)
+    observ_index = initial_centroids[:, 0:1].astype('int32')
+    initial_centroids = initial_centroids[:, 1:].tolist()
+    vectors = vectors[:,1:].tolist()
 
-initial_centroids = k_means_plus_plus(vectors, num_of_clusters)
-observ_index = initial_centroids[:, 0:1].astype('int32')
-initial_centroids = initial_centroids[:, 1:].tolist()
-vectors = vectors[:,1:].tolist()
+    final_centroids = km.fit(len(vectors[0]), len(vectors), num_of_clusters, max_iter, eps, vectors, initial_centroids)
 
-final_centroids = km.fit(len(vectors[0]), len(vectors), num_of_clusters, max_iter, eps, vectors, initial_centroids)
-
-printSolution(final_centroids, observ_index)
+    printSolution(final_centroids, observ_index)

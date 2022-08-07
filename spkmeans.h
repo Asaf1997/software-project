@@ -1,5 +1,4 @@
-typedef struct Graph
-{
+typedef struct Graph{
     double **vertices;
     double **wam_mat;
     double **lnorm_mat;
@@ -16,3 +15,28 @@ typedef enum Goal
 } Goal;
 
 static double distance(double vector1[], double vector2[], int length);
+void assertion_check(int b);
+void read_data(Graph * graph, char * file_path);
+double ** make_mat(int m, int n);
+double ** make_mat_identity(int m, int n);
+double * make_vector(int n);
+void print_mat(double ** mat, int i, int j);
+void print_mat_transposed(double ** mat, int i, int j);
+void free_mat(double ** mat, int x);
+
+
+void wam(Graph * graph);
+void ddg(Graph * graph);
+void lnorm(Graph * graph);
+void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues);
+
+
+double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n);
+void find_largest_element_pivot(double ** matrix, int n, int * piv);
+int sign(double num);
+double off(double ** matrix, int n);
+void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, double **eigenvectors_tag, int n, int i, int j);
+void update_matrix(double ** matrix, double ** matrix_tag, int n, int i, int j);
+int check_convergence(double ** matrix, double ** matrix_tag, int n);
+
+
