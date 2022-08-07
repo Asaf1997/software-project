@@ -10,6 +10,90 @@ const int MAX_ITER_KMEANS = 300;
 const int MAX_ITER_JACOBI = 100;
 
 
+int main(int argc, char *argv[]){
+    Graph * graph = malloc(sizeof(Graph*));
+    Goal goal;
+    int n, dim;
+    char *input_name, *goal_str;
+    double *eigenvalues;
+    double **eigenvectors;
+
+    /* checking correctness of the input */
+    if(argc != 3 ){
+        printf("Invalid Input!");
+        exit(1);
+    }
+
+    goal_str = argv[1];
+    input_name = argv[2];
+
+    if (goal_str != "wam" && goal_str != "ddg" && goal_str != "lnorm" && goal_str != "jacobi"){
+        printf("Invalid Input!");
+        exit(1);
+    }
+
+    goal = (int)goal_str[0];
+
+    /* insert information from file to graph */
+    read_data(graph, input_name);
+
+    dim = graph->dim;
+    n = graph->n;
+
+    /* operate by goal */
+    if (goal == e_jacobi){
+        eigenvectors = make_mat(n ,n);
+        eigenvalues = make_vector(n);
+        jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+
+        print_mat(eigenvalues, 1 ,n);
+        print_mat_transposed(eigenvectors, n, n);
+
+        free(eigenvalues);
+        free_mat(eigenvectors, n);
+        free_mat(graph->vertices, n);
+        free(graph);
+
+        return 0;
+    }
+
+    wam(graph);
+    if (goal == e_wam){
+        print_mat(graph->wam_mat, n, n);
+
+        free_mat(graph->vertices, n);
+        free_mat(graph->wam_mat, n);
+        free(graph);
+
+        return 0;
+    }
+
+    ddg(graph);
+    if (goal == e_ddg){
+        print_mat(graph->ddg_mat, n, n);
+
+        free_mat(graph->vertices, n);
+        free_mat(graph->wam_mat, n);
+        free_mat(graph->ddg_mat, n);
+        free(graph);
+
+        return 0;
+    }
+
+    lnorm(graph);
+
+    print_mat(graph->lnorm_mat, n, n);
+
+    free_mat(graph->vertices, n);
+    free_mat(graph->wam_mat, n);
+    free_mat(graph->ddg_mat, n);
+    free_mat(graph->lnorm_mat, n);
+    free(graph);
+
+    return 0;
+}
+
+
 /* returns the distance between two vectors */
 double distance(double vector1[], double vector2[], int length){
     double sum=0.0;
@@ -144,8 +228,10 @@ void print_mat_transposed(double ** mat, int i, int j){
 
 void free_mat(double ** mat, int x){
     int i;
-    for (i=0 ; i < x ; i++){
+    if (mat != NULL){
+        for (i=0 ; i < x ; i++){
         free(mat[i]);
+        }
     }
     free(mat);
 }
@@ -206,7 +292,7 @@ double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
 }
 
 
-double ** lnorm(Graph * graph){
+void lnorm(Graph * graph){
     double ** sqrt_D = sqrt_diagonal_matrix(graph->ddg_mat, graph->n);
     double ** lnorm_mat;
     double ** wam_mat = graph->wam_mat;
@@ -320,7 +406,7 @@ int check_convergence(double ** matrix, double ** matrix_tag, int n){
 
 
 /* Assume that matrix argument is symetric */
-double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
+void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
     double ** matrix_tag;
     double ** eigenvectors_tag;
     int *piv;
@@ -334,8 +420,8 @@ double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigen
 
     /* Initialize Matrix Tag */
     matrix_tag = make_mat(n, n);
-    for (r = 0; r < n; r++){
-        for (k=0; k<n; k++){
+    for (r = 0; r < n ; r++){
+        for (k = 0; k < n ; k++){
             matrix_tag[r][k] = matrix[r][k];
         }
     }
@@ -370,130 +456,8 @@ double ** jacobi(double ** matrix, int n, double ** eigenvectors, double * eigen
     for (r = 0; r < n; r++) {
         eigenvalues[r] = matrix_tag[r][r];
     }
+
     free(piv);
     free(matrix_tag);
     free(eigenvectors_tag);
-}
-
-
-void sort_descending(double * eigenvalues, double ** eigenvectors, int n)
-{
-    int i, j, temp_vector;
-    double temp_value;
-    for (i = 0; i < n; ++i)
-    {
-        for (j = i+1; j < n; ++j)
-        {
-            if (eigenvalues[i] < eigenvalues[j])
-            {
-                temp_value = eigenvalues[i];
-                temp_vector = eigenvectors[i];
-
-                eigenvalues[i] = eigenvalues[j];
-                eigenvectors[i] = eigenvectors[j];
-
-                eigenvalues[j] = temp_value;
-                eigenvectors[j] = temp_vector;
-            }
-        }
-    }
-}
-
-
-int largest_k_eigenvectors(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
-    int i, max_delta, k;
-    double delta;
-    sort_descending(eigenvalues, eigenvectors, n);
-    max_delta = 0;
-    k = 0;
-    for(i=0; i<(n/2)-1; i++){
-        delta = abs(eigenvalues[i]- eigenvalues[i+1]);
-        if( delta > max_delta ){
-            max_delta = delta;
-            k = i + 1;
-        }
-    }
-    return k;
-}
-
-
-int main(int argc, char *argv[]){
-    Graph * graph = malloc(sizeof(Graph*));
-    Goal goal;
-    int n, dim;
-    char *input_name, *goal_str;
-    double *eigenvalues;
-    double **eigenvectors;
-
-    /* checking correctness of the input */
-    if(argc != 3 ){        
-        printf("Invalid Input!");
-        exit(1);
-    }
-
-    goal_str = argv[1];
-    input_name = argv[2];
-
-    if (goal_str != "wam" && goal_str != "ddg" && goal_str != "lnorm" && goal_str != "jacobi"){
-        printf("Invalid Input!");
-        exit(1);
-    }
-
-    goal = (int)goal_str[0];
-
-    read_data(graph, input_name);
-
-    dim = graph->dim;
-    n = graph->n;
-
-    if (goal == e_jacobi){
-        eigenvectors = make_mat(n ,n);
-        eigenvalues = make_vector(n);
-        jacobi(graph->vertices, eigenvectors, eigenvalues, n);
-
-        print_mat(eigenvalues, 1 ,n);
-        print_mat_transposed(eigenvectors, n, n);
-
-        free(eigenvalues);
-        free_mat(eigenvectors, n);
-        free_mat(graph->vertices, n);
-        free(graph);
-
-        return 0;
-    }
-
-    wam(graph);
-    if (goal == e_wam){
-        print_mat(graph->wam_mat, n, n);
-     
-        free_mat(graph->vertices, n);
-        free_mat(graph->wam_mat, n);
-        free(graph);
-
-        return 0;
-    }
-
-    ddg(graph);
-    if (goal == e_ddg){
-        print_mat(graph->ddg_mat, n, n);
-
-        free_mat(graph->vertices, n);
-        free_mat(graph->wam_mat, n);
-        free_mat(graph->ddg_mat, n);
-        free(graph);
-
-        return 0;
-    }
-
-    lnorm(graph);
-
-    print_mat(graph->lnorm_mat, n, n);
-
-    free_mat(graph->vertices, n);
-    free_mat(graph->wam_mat, n);
-    free_mat(graph->ddg_mat, n);
-    free_mat(graph->lnorm_mat, n);
-    free(graph);
-
-    return 0;
 }
