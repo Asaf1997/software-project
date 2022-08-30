@@ -2,7 +2,7 @@ typedef struct Graph{
     double **vertices;
     double **wam_mat;
     double **lnorm_mat;
-    double *ddg_mat;
+    double **ddg_mat;
     int n, dim;
 } Graph;
 
@@ -22,9 +22,10 @@ double ** make_mat(int m, int n);
 double ** make_mat_identity(int m, int n);
 double * make_vector(int n);
 void print_mat(double ** mat, int i, int j);
+void print_array(double * array, int n);
 void free_mat(double ** mat, int x);
 void wam(Graph * graph);
-void copy_mat(double ** old, double ** copy, int rows, int culs);
+void copy_array(double * old, double * copy, int culs);
 void ddg(Graph * graph);
 double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n);
 void lnorm(Graph * graph);
@@ -43,4 +44,4 @@ int * make_cluster_count(int K);
 int get_closest_cluster(double *vector, double **centroids_array, int vector_size, int K);
 void add_vector_to_cluster(double *vector, double *cluster_sum, int vector_size);
 int update_medians(double **cluster_sum, double **centroids_array, int *cluster_count, int vector_size, int K);
-int k_means_c(double **vectors_array, double **centroids_array, int dimension, int num_of_vectors, int k, int max_iter, double epsilon);
+int k_means_c(double **vectors_array, double **centroids_array, int dimension, int num_of_vectors, int k, int max_iter);

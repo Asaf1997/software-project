@@ -5,7 +5,6 @@ import mykmeanssp as km
 
 
 MAX_ITER = 300
-EPS = 0
 
 
 def error(b):
@@ -125,6 +124,6 @@ if __name__ == '__main__':
     initial_centroids = initial_centroids[:, 1:].tolist()
     vectors = final_solution_mat[:, 1:].tolist()
 
-    final_centroids = km.fit_kmeans(len(vectors[0]), len(vectors), k, MAX_ITER, EPS, vectors, initial_centroids)
+    final_centroids = km.fit_kmeans(len(vectors[0]), len(vectors), k, MAX_ITER, vectors, initial_centroids)
 
     printSolution_spk(final_centroids, observ_index)

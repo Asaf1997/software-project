@@ -4,7 +4,6 @@
 #include <float.h>
 #include <math.h>
 #include "spkmeans.h"
-#include <Python.h>
 
 
 const int MAX_ITER_KMEANS = 300;
@@ -14,22 +13,23 @@ const int MAX_ITER_JACOBI = 100;
 int main(int argc, char *argv[]){
     Graph * graph = malloc(sizeof(Graph*));
     Goal goal;
-    int n, dim;
+    int n;
     char *input_name, *goal_str;
     double *eigenvalues;
     double **eigenvectors;
 
     /* checking correctness of the input */
     if(argc != 3 ){
-        printf("Invalid Input!");
+        printf("Invalid Input!\n");
         exit(1);
     }
-
+    
     goal_str = argv[1];
     input_name = argv[2];
+    
 
-    if (goal_str != "wam" && goal_str != "ddg" && goal_str != "lnorm" && goal_str != "jacobi"){
-        printf("Invalid Input!");
+    if (strcmp(goal_str, "wam") &&  strcmp(goal_str, "ddg") && strcmp(goal_str, "lnorm") && strcmp(goal_str, "jacobi")){
+        printf("Invalid Input!\n");
         exit(1);
     }
 
@@ -38,16 +38,15 @@ int main(int argc, char *argv[]){
     /* insert information from file to graph */
     read_data(graph, input_name);
 
-    dim = graph->dim;
     n = graph->n;
 
     /* operate by goal */
     if (goal == e_jacobi){
         eigenvectors = make_mat(n ,n);
         eigenvalues = make_vector(n);
-        jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+        jacobi(graph->vertices, n, eigenvectors, eigenvalues);
 
-        print_mat(eigenvalues, 1 ,n);
+        print_array(eigenvalues, n);
         print_mat(eigenvectors, n, n);
 
         free(eigenvalues);
@@ -117,10 +116,10 @@ void assertion_check(int b){
 void read_data(Graph * graph, char * file_path){
     double value;
     char c;
-    int first_bool = 1, n = 1, d = 0, i, j;
+    int first_bool = 1, n = 0, d = 0, i, j;
     double ** vectors_array;
     FILE * f = fopen(file_path, "r");
-    my_assert(f != NULL);
+    assertion_check(f == NULL);
 
     while (fscanf(f, "%lf%c", &value, &c) == 2)
     {
@@ -212,17 +211,15 @@ void print_mat(double ** mat, int i, int j){
 }
 
 
-void print_mat_transposed(double ** mat, int i, int j){
-    int x,y;
-    for (x = 0 ; x < j ; x++){
-        for (y = 0 ; y < i ; y++){
-            printf("%.4f", mat[y][x]);
-            if (y != j-1){
+void print_array(double * array, int n){
+    int y;
+    for (y = 0 ; y < n ; y++){
+            printf("%.4f", array[y]);
+            if (y != n-1){
                 printf(",");
             }
-        }
-        printf("\n");
     }
+    printf("\n");
 }
 
 
@@ -249,14 +246,14 @@ void wam(Graph * graph){
 
     for (i = 0; i < n; i++){
         for (j=i+1 ; j < n ; j++){
-            weight = exp( (-1) * distance(vectors[i], vectors[j], d) /2 );
+            weight = exp( (-1) * (distance(vectors[i], vectors[j], d) /2) );
             wam_mat[i][j] = weight;
             wam_mat[j][i] = weight;
         }
         wam_mat[i][i] = 0;
     }
 
-    graph->vertices = wam_mat;
+    graph->wam_mat = wam_mat;
     return;
 }
 
@@ -276,14 +273,14 @@ void ddg(Graph * graph){
     double ** weighted_adj_matrix = graph->wam_mat;
     double ** diagonal_matrix;    
     double sum_weights = 0;
-    int i;
+    int i,j;
     int n = graph->n;
 
     diagonal_matrix = make_mat(n, n); 
 
-    for(int i=0 ; i < n ; i++){
+    for(i=0 ; i < n ; i++){
         sum_weights = 0;
-        for(int j=0 ; j < n ; j++){
+        for(j=0 ; j < n ; j++){
             sum_weights += weighted_adj_matrix[i][j];
         }
         diagonal_matrix[i][i] = sum_weights;
@@ -295,8 +292,8 @@ void ddg(Graph * graph){
 
 double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
     double ** sqrt_matrix = make_mat(n, n);
-
-    for(int i=0 ; i < n ; i++){
+    int i;
+    for(i=0 ; i < n ; i++){
         sqrt_matrix[i][i] = 1 / sqrt(diagonal_matrix[i][i]);
     }
     return sqrt_matrix;
@@ -328,8 +325,9 @@ void lnorm(Graph * graph){
 
 void find_largest_element_pivot(double ** matrix, int n, int * piv){
     int max = 0;
-    for (int i = 0; i < n; i++){
-        for (int j = i + 1 ; j < n; j++){
+    int i,j;
+    for (i = 0; i < n; i++){
+        for (j = i + 1 ; j < n; j++){
             if ( matrix[i][j] > max ){
                 piv[0] = i;
                 piv[1] = j;
@@ -346,8 +344,9 @@ int sign(double num){
 
 double off(double ** matrix, int n){
     double sum =0;
-    for (int i =0; i < n; i++){
-        for (int j =0; j < n; j++){
+    int i,j;
+    for (i=0 ; i < n; i++){
+        for (j=0 ; j < n; j++){
             if (i != j){
                 sum = sum + pow(matrix[i][j], 2);
             }
@@ -360,7 +359,7 @@ double off(double ** matrix, int n){
 /* Assume that matrix argument is symetric */
 void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, 
                         double **eigenvectors_tag, int n, int i, int j){
-    int t,c,s,r,k;
+    int t,c,s,r;
     double theta;
     
     theta = (matrix[j][j] - matrix[i][i]) / (2*matrix[i][j]);
@@ -422,6 +421,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
     double ** eigenvectors_tag;
     int *piv;
     int i,j,r,k;
+    int count_iter = 1;
 
     /* Find Pivot */
     piv = calloc(2, sizeof(int));
@@ -448,7 +448,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
     /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
     iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
 
-    int count_iter = 1;
+    
     while (check_convergence(matrix, matrix_tag, n) != 1 && count_iter <= MAX_ITER_JACOBI){
 
         /* Update Matrix */
@@ -477,7 +477,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
 
 
 void sort_descending(double * array, int n){
-    int i, j, temp_vector;
+    int i, j;
     double temp_value;
     for (i = 0; i < n; ++i)
     {
@@ -531,7 +531,7 @@ void make_U(double ** eigenvectors, double * eigenvalues, double * eigenvalues_s
 
 void make_T(double ** U, double ** T, int N, int K){
     int i,j;
-    double ** zero_vector = make_vector(N);
+    double * zero_vector = make_vector(N);
     double norm;
     for (i=0 ; i<N ; i++){
         norm = distance(U[i], zero_vector, K);
@@ -543,9 +543,105 @@ void make_T(double ** U, double ** T, int N, int K){
 }
 
 
-double ** get_T(Graph * graph){
-    
+/* KMEANS FUNCTIONS FOR PYTHON FILE */
 
+/* allocate space for this array */
+int * make_cluster_count(int K){
+    int *count, i;
+    count = calloc(K, sizeof(int));
+    assertion_check(count == NULL);
 
+    for(i = 0 ; i < K ; i++){
+        count[i] = 0;
+    }
+    return count;
 }
 
+
+/* return the index of the closest cluster to this vector */
+int get_closest_cluster(double *vector, double **centroids_array, int vector_size, int K){
+    int closest_cluster = -1, j;
+    double min_dist = DBL_MAX, dist;
+    for(j=0 ; j < K ; j++){
+        dist = distance(vector, centroids_array[j], vector_size);
+        if(min_dist > dist){
+            min_dist = dist;
+            closest_cluster = j;
+        }
+    }
+    return closest_cluster;
+}
+
+
+/* sums the vectors that in a certain cluster to this point of time */
+void add_vector_to_cluster(double *vector, double *cluster_sum, int vector_size){
+    int j;
+    for (j=0 ; j < vector_size ; j++){
+        cluster_sum[j] += vector[j];
+    }
+}
+
+
+/* use the information from cluster_sum array and cluster_count array to calculate the new centroids for each cluster */
+int update_medians(double **cluster_sum, double **centroids_array, int *cluster_count, int vector_size, int K){
+    double epsilon = 0, norma, median;
+    int epsilon_bool = 0;
+    int i,j;
+    for(i=0 ; i < K ; i++){
+            norma = 0.0;
+            for (j=0 ; j < vector_size ; j++){
+                /*DRAFT: if(cluster_count[i] == 0){printf("An Error Has Occurred"); return 0;}*/
+                assertion_check(cluster_count[i] == 0);
+                median = cluster_sum[i][j]/cluster_count[i];
+                norma += (centroids_array[i][j] - median)*(centroids_array[i][j] - median);
+                centroids_array[i][j] = median;
+
+                /* resets the sum and count arrays for the next iteration */
+                cluster_sum[i][j] = 0.0;
+            }
+            cluster_count[i] = 0;
+
+            /* if there at least one vector that not close enough to median by epsilon */
+            if(sqrt(norma) >= epsilon){
+                epsilon_bool = 1;
+            }
+        }
+    return epsilon_bool;
+}
+
+
+int k_means_c(double **vectors_array, double **centroids_array, int dimension, int num_of_vectors, int k, int max_iter){
+    int iteration, i, closest_cluster;
+    int *cluster_count;
+    double **cluster_sum;
+
+    cluster_sum = make_mat(k, dimension);
+    cluster_count = make_cluster_count(k);
+
+    if(cluster_sum == 0 || cluster_count == 0){
+        return 0;
+    }
+
+    iteration = 0;
+    while (iteration < max_iter){
+        for (i=0 ; i < num_of_vectors ; i++){
+            closest_cluster = get_closest_cluster(vectors_array[i], centroids_array, dimension, k);
+            add_vector_to_cluster(vectors_array[i], cluster_sum[closest_cluster], dimension);
+            cluster_count[closest_cluster]++;
+        }
+
+        /* also checks if we got under epsilon */
+        if (!update_medians(cluster_sum, centroids_array, cluster_count, dimension, k)){
+            break;
+        }
+        iteration++;
+    }
+
+    for(i=0 ; i < k ; i++){
+        free(cluster_sum[i]);
+    }
+    free(cluster_sum);
+    free(cluster_count);
+
+    return 1;
+}

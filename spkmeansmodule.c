@@ -78,9 +78,9 @@ static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues
 
 
 static PyObject* goal_fit(PyObject* self, PyObject* args){
-    int dimension, n, i, goal_num, K, rows, culs;
-    int rows_addition = 0;
-    double **vectors_array, **final_array;
+    int dimension, n, goal_num, K, rows, culs;
+    double **vectors_array;
+    double **final_array = NULL;
     double *eigenvalues = NULL;
     double *eigenvalues_sorted = NULL;
     double **eigenvectors = NULL;
@@ -110,6 +110,8 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     graph->lnorm_mat = NULL;
     graph->wam_mat = NULL;
 
+    goal = goal_num;
+
     rows = n;
     culs = n;
 
@@ -132,9 +134,9 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
         if(goal == e_spk){
             eigenvectors = make_mat(n ,n);
             eigenvalues = make_vector(n);
-            jacobi(graph->lnorm_mat, eigenvectors, eigenvalues, n);
+            jacobi(graph->lnorm_mat, n, eigenvectors, eigenvalues);
 
-            copy_mat(eigenvalues, eigenvalues_sorted, 1, n);
+            copy_array(eigenvalues, eigenvalues_sorted, n);
             sort_descending(eigenvalues_sorted, n);
             
             if (K == 0){
@@ -154,7 +156,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     else{
         eigenvectors = make_mat(n ,n);
         eigenvalues = make_vector(n);
-        jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+        jacobi(graph->vertices, n, eigenvectors, eigenvalues);
 
         make_jacobi_final_array(eigenvectors, eigenvalues, final_array, n);
         rows = n+1;
@@ -179,9 +181,8 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
 }
 
 
-static PyObject* fit_spk(PyObject* self, PyObject* args){
+static PyObject* fit_kmeans(PyObject* self, PyObject* args){
     int dimension, num_of_vectors, k, max_iter, i;
-    double epsilon;
     double **vectors_array, **centroids_array;
 
     PyObject * py_vectors_array;
@@ -189,7 +190,7 @@ static PyObject* fit_spk(PyObject* self, PyObject* args){
     PyObject * py_final_centroids;
 
     /* get arguments to variables */
-    if (!PyArg_ParseTuple(args, "iiiidOO", &dimension, &num_of_vectors, &k, &max_iter, &epsilon, &py_vectors_array, &py_centroids_array)){
+    if (!PyArg_ParseTuple(args, "iiiiOO", &dimension, &num_of_vectors, &k, &max_iter, &py_vectors_array, &py_centroids_array)){
         return NULL;
     }
 
@@ -203,7 +204,7 @@ static PyObject* fit_spk(PyObject* self, PyObject* args){
 
 
     /* initialize kmeans algorithem */
-    if(!k_means_c(vectors_array, centroids_array, dimension, num_of_vectors, k, max_iter, epsilon)){
+    if(!k_means_c(vectors_array, centroids_array, dimension, num_of_vectors, k, max_iter)){
         return NULL;
     }
 
@@ -227,6 +228,10 @@ static PyMethodDef mykmeanssp_Methods[] = {
     (PyCFunction) goal_fit,
     METH_VARARGS,
     PyDoc_STR("if goal != spk")},
+    {"fit_kmeans",
+    (PyCFunction) fit_kmeans,
+    METH_VARARGS,
+    PyDoc_STR("if goal == spk")},
     {NULL,NULL,0,NULL}
 };
 
