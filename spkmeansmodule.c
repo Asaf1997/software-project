@@ -71,7 +71,7 @@ static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues
     }
     for(i=0; i < n ; i++){
        for (j=0 ; j < n ; j++){
-            final_array[i+1][j] = eigenvectors[j][i];
+            final_array[i+1][j] = eigenvectors[i][j];
        }
     }
 }
@@ -132,7 +132,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
         if(goal == e_spk){
             eigenvectors = make_mat(n ,n);
             eigenvalues = make_vector(n);
-            jacobi(graph->vertices, eigenvectors, eigenvalues, n);
+            jacobi(graph->lnorm_mat, eigenvectors, eigenvalues, n);
 
             copy_mat(eigenvalues, eigenvalues_sorted, 1, n);
             sort_descending(eigenvalues_sorted, n);
@@ -140,7 +140,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
             if (K == 0){
                 K = largest_k_eigenvectors(eigenvalues_sorted, n);
             }
-            
+
             U = make_mat(n, K);
             T = make_mat(n, K);
             make_U(eigenvectors, eigenvalues, eigenvalues_sorted, U, n, K);
@@ -176,6 +176,49 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     free(eigenvalues_sorted);
     
     return py_final_array;
+}
+
+
+static PyObject* fit_spk(PyObject* self, PyObject* args){
+    int dimension, num_of_vectors, k, max_iter, i;
+    double epsilon;
+    double **vectors_array, **centroids_array;
+
+    PyObject * py_vectors_array;
+    PyObject * py_centroids_array;
+    PyObject * py_final_centroids;
+
+    /* get arguments to variables */
+    if (!PyArg_ParseTuple(args, "iiiidOO", &dimension, &num_of_vectors, &k, &max_iter, &epsilon, &py_vectors_array, &py_centroids_array)){
+        return NULL;
+    }
+
+    /* making c arrays with python input */
+    vectors_array = convert_list_to_c(py_vectors_array, num_of_vectors, dimension);
+    centroids_array = convert_list_to_c(py_centroids_array, k, dimension);
+
+    if (vectors_array == NULL || centroids_array == NULL){
+        return NULL;
+    }
+
+
+    /* initialize kmeans algorithem */
+    if(!k_means_c(vectors_array, centroids_array, dimension, num_of_vectors, k, max_iter, epsilon)){
+        return NULL;
+    }
+
+    py_final_centroids = convert_array_to_py(centroids_array, k, dimension);
+
+    for(i=0 ; i < num_of_vectors ; i++){
+        free(vectors_array[i]);
+    }
+    for(i=0 ; i < k ; i++){
+        free(centroids_array[i]);
+    }
+    free(vectors_array);
+    free(centroids_array);
+
+    return py_final_centroids;
 }
 
 

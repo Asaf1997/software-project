@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
         jacobi(graph->vertices, eigenvectors, eigenvalues, n);
 
         print_mat(eigenvalues, 1 ,n);
-        print_mat_transposed(eigenvectors, n, n);
+        print_mat(eigenvectors, n, n);
 
         free(eigenvalues);
         free_mat(eigenvectors, n);
@@ -82,7 +82,6 @@ int main(int argc, char *argv[]){
     }
 
     lnorm(graph);
-
     print_mat(graph->lnorm_mat, n, n);
 
     free_mat(graph->vertices, n);
@@ -426,6 +425,8 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
 
     /* Find Pivot */
     piv = calloc(2, sizeof(int));
+    assertion_check(piv == NULL);
+
     find_largest_element_pivot(matrix, n, piv);
     i = piv[0];
     j = piv[1];

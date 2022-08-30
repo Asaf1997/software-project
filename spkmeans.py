@@ -1,6 +1,11 @@
 import sys
 import numpy as np
 import pandas as pd
+import mykmeanssp as km
+
+
+MAX_ITER = 300
+EPS = 0
 
 
 def error(b):
@@ -27,6 +32,59 @@ def get_args():
         error(True)
 
 
+def printSolution_spk(final_centroids, observ_array):
+    temp_txt = ""
+    for i in range(len(observ_array)):
+        temp_txt += str(observ_array[i][0])+","
+    print(temp_txt[:-1])
+    for i in range(len(final_centroids)):
+        temp_txt = ""
+        for j in range(len(final_centroids[0])):
+            temp_txt += format(final_centroids[i][j], ".4f")+","
+        print(temp_txt[:-1])
+
+
+def printSolution(mat):
+    temp_txt = ""
+    for i in range(len(mat)):
+        temp_txt = ""
+        for j in range(len(mat[0])):
+            temp_txt += format(mat[i][j], ".4f")+","
+        print(temp_txt[:-1])
+
+
+def get_min_dist(vector, centroids_list, i):
+    min_dist = float('inf')
+    for j in range(i):
+        temp = vector[1:] - centroids_list[j][1:]
+        dist = np.dot(temp.T, temp)
+        if min_dist > dist:
+            min_dist = dist
+    return min_dist
+
+
+def k_means_plus_plus(vectors, k):
+    # d - dimension, n - number of vectors
+    probability = np.zeros(len(vectors))
+    n = len(vectors)
+    d = len(vectors[0])
+    np.random.seed(0)
+    cluster_centroids = np.zeros((k, d), float)
+    index = np.random.choice(n)
+    cluster_centroids[0] = vectors[index]
+    for i in range(1, k):
+        d_sum = 0
+        for l in range(n):
+            temp = get_min_dist(vectors[l], cluster_centroids, i)
+            d_sum += temp
+            probability[l] = temp
+        probability = probability / d_sum
+        index = np.random.choice(n, p=probability)
+        cluster_centroids[i] = vectors[index]
+
+    return cluster_centroids
+
+
 if __name__ == '__main__':
     # write the numpy format
     float_formatter = "{:.4f}".format
@@ -34,20 +92,39 @@ if __name__ == '__main__':
 
     # checking arguments and putting them into variables
     k, goal_str, input_name = get_args()
-    vectors = "" # using C func
 
-    # if k == 0 then we need to use C func to bring k from L-Norm
-    if k == 0:
-        pass
-
-    if k >= len(vectors):
+    # getting the vectors from file
+    try:
+        input_vectors = pd.read_csv(input_name, header=None)
+        input_vectors = pd.DataFrame(input_vectors).values.tolist()
+        # input_vectors = input_vectors.to_numpy().tolist()
+    except:
         error(True)
 
-    initial_centroids = k_means_plus_plus(vectors, num_of_clusters)
+    dim = len(input_vectors[0])
+    N = len(input_vectors)
+
+    if k >= N:
+        error(True)
+
+    final_solution_mat = km.goal_fit(dim, N, int(goal_str[0]), k, input_vectors)
+
+    if (goal_str != "spk"):
+        printSolution(final_solution_mat)
+        exit(0)
+
+    k = len(final_solution_mat[0])
+
+    # adding index cull
+    for i in range(len(final_solution_mat)):
+        final_solution_mat[i].insert(0, i)
+
+    final_solution_mat = np.asarray(final_solution_mat)
+    initial_centroids = k_means_plus_plus(final_solution_mat, k)
     observ_index = initial_centroids[:, 0:1].astype('int32')
     initial_centroids = initial_centroids[:, 1:].tolist()
-    vectors = vectors[:,1:].tolist()
+    vectors = final_solution_mat[:, 1:].tolist()
 
-    final_centroids = km.fit(len(vectors[0]), len(vectors), num_of_clusters, max_iter, eps, vectors, initial_centroids)
+    final_centroids = km.fit_kmeans(len(vectors[0]), len(vectors), k, MAX_ITER, EPS, vectors, initial_centroids)
 
-    printSolution(final_centroids, observ_index)
+    printSolution_spk(final_centroids, observ_index)
