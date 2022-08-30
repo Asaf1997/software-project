@@ -32,16 +32,24 @@ void lnorm(Graph * graph);
 void find_largest_element_pivot(double ** matrix, int n, int * piv);
 int sign(double num);
 double off(double ** matrix, int n);
-void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, double **eigenvectors_tag, int n, int i, int j);
-void update_matrix(double ** matrix, double ** matrix_tag, int n, int i, int j);
+void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors,
+                        double **eigenvectors_tag, int n, int i, int j);
+void update_matrix(double ** matrix, double ** matrix_tag, int n,
+                                                        int i, int j);
 int check_convergence(double ** matrix, double ** matrix_tag, int n);
-void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues);
+void jacobi(double ** matrix, int n, double ** eigenvectors,
+                                                double * eigenvalues);
 void sort_descending(double * array, int n);
 int largest_k_eigenvectors(double * eigenvalues, int n);
-void make_U(double ** eigenvectors, double * eigenvalues, double * eigenvalues_sorted, double ** U, int N, int K);
+void make_U(double ** eigenvectors, double * eigenvalues,
+                    double * eigenvalues_sorted, double ** U, int N, int K);
 void make_T(double ** U, double ** T, int N, int K);
 int * make_cluster_count(int K);
-int get_closest_cluster(double *vector, double **centroids_array, int vector_size, int K);
-void add_vector_to_cluster(double *vector, double *cluster_sum, int vector_size);
-int update_medians(double **cluster_sum, double **centroids_array, int *cluster_count, int vector_size, int K);
-int k_means_c(double **vectors_array, double **centroids_array, int dimension, int num_of_vectors, int k, int max_iter);
+int get_closest_cluster(double *vector, double **centroids_array,
+                                            int vector_size, int K);
+void add_vector_to_cluster(double *vector, double *cluster_sum,
+                                                    int vector_size);
+int update_medians(double **cluster_sum, double **centroids_array,
+                        int *cluster_count, int vector_size, int K);
+int k_means_c(double **vectors_array, double **centroids_array, int dimension,
+                                    int num_of_vectors, int k, int max_iter);

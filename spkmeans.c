@@ -42,7 +42,7 @@ int main(int argc, char *argv[]){
 
     /* operate by goal */
     if (goal == e_jacobi){
-        eigenvectors = make_mat(n ,n);
+        eigenvectors = make_mat_identity(n ,n);
         eigenvalues = make_vector(n);
         jacobi(graph->vertices, n, eigenvectors, eigenvalues);
 
@@ -324,11 +324,12 @@ void lnorm(Graph * graph){
 
 
 void find_largest_element_pivot(double ** matrix, int n, int * piv){
-    int max = 0;
+    double max_val = 0.0;
     int i,j;
     for (i = 0; i < n; i++){
         for (j = i + 1 ; j < n; j++){
-            if ( matrix[i][j] > max ){
+            if (fabs(matrix[i][j]) > max_val ){
+                max_val = fabs(matrix[i][j]);
                 piv[0] = i;
                 piv[1] = j;
             }
@@ -343,7 +344,7 @@ int sign(double num){
 
 
 double off(double ** matrix, int n){
-    double sum =0;
+    double sum = 0.0;
     int i,j;
     for (i=0 ; i < n; i++){
         for (j=0 ; j < n; j++){
@@ -359,13 +360,16 @@ double off(double ** matrix, int n){
 /* Assume that matrix argument is symetric */
 void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, 
                         double **eigenvectors_tag, int n, int i, int j){
-    int t,c,s,r;
+    int r;
+    double t,c,s;
     double theta;
     
     theta = (matrix[j][j] - matrix[i][i]) / (2*matrix[i][j]);
-    t = (sign(theta)) / (abs(theta) + sqrt(pow(theta, 2) + 1));
+    t = (sign(theta)) / (fabs(theta) + sqrt(pow(theta, 2) + 1));
     c = 1 / sqrt(pow(t, 2) + 1);
     s = t*c;
+
+    /*printf("t= %f, c= %f, s= %f\n\n", t,c,s);*/
 
     /* Update Matrix Tag */
     for (r = 0; r < n; r++){
@@ -392,10 +396,16 @@ void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors,
         eigenvectors[r][i] = eigenvectors_tag[r][i];
         eigenvectors[r][j] = eigenvectors_tag[r][j];
     }
+    /*
+    printf("eigen vectors:\n");
+    print_mat(eigenvectors,n,n);
+    printf("\ntag: \n");
+    print_mat(eigenvectors_tag, n,n);*/
 }
 
 
-void update_matrix(double ** matrix, double ** matrix_tag, int n, int i, int j){
+void update_matrix(double ** matrix, double ** matrix_tag, int n,
+                                                        int i, int j){
     int r;
     for (r = 0; r < n; r++){
         matrix[r][i] = matrix_tag[r][i];
@@ -416,7 +426,8 @@ int check_convergence(double ** matrix, double ** matrix_tag, int n){
 
 
 /* Assume that matrix argument is symetric */
-void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalues){
+void jacobi(double ** matrix, int n, double ** eigenvectors,
+                                                double * eigenvalues){
     double ** matrix_tag;
     double ** eigenvectors_tag;
     int *piv;
@@ -439,9 +450,6 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
         }
     }
 
-    /* Initialize Eigenvectors Matrix */
-    eigenvectors = make_mat_identity(n, n);
-
     /* Initialize Eigenvectors Matrix Tag */
     eigenvectors_tag = make_mat_identity(n, n);
 
@@ -449,7 +457,11 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
     iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
 
     
-    while (check_convergence(matrix, matrix_tag, n) != 1 && count_iter <= MAX_ITER_JACOBI){
+    while (check_convergence(matrix, matrix_tag, n) != 1 
+                            && count_iter <= MAX_ITER_JACOBI){
+       /* printf("iter num: %d\n", count_iter);
+        print_mat(eigenvectors, n, n);
+        printf("\n\n");*/
 
         /* Update Matrix */
         update_matrix(matrix, matrix_tag, n, i, j);
@@ -460,7 +472,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors, double * eigenvalue
         j = piv[1];
 
         /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
-        iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
+        iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n,i,j);
 
         count_iter++;
     }
@@ -513,7 +525,8 @@ int largest_k_eigenvectors(double * eigenvalues, int n){
 }
 
 
-void make_U(double ** eigenvectors, double * eigenvalues, double * eigenvalues_sorted, double ** U, int N, int K){
+void make_U(double ** eigenvectors, double * eigenvalues, 
+                    double * eigenvalues_sorted, double ** U, int N, int K){
     int i,j,r;
     for (i=0 ; i < K ; i++){
         for (r = 0 ; r < N ; r++){
@@ -559,7 +572,8 @@ int * make_cluster_count(int K){
 
 
 /* return the index of the closest cluster to this vector */
-int get_closest_cluster(double *vector, double **centroids_array, int vector_size, int K){
+int get_closest_cluster(double *vector, double **centroids_array,
+                                            int vector_size, int K){
     int closest_cluster = -1, j;
     double min_dist = DBL_MAX, dist;
     for(j=0 ; j < K ; j++){
@@ -574,7 +588,8 @@ int get_closest_cluster(double *vector, double **centroids_array, int vector_siz
 
 
 /* sums the vectors that in a certain cluster to this point of time */
-void add_vector_to_cluster(double *vector, double *cluster_sum, int vector_size){
+void add_vector_to_cluster(double *vector, double *cluster_sum,
+                                                    int vector_size){
     int j;
     for (j=0 ; j < vector_size ; j++){
         cluster_sum[j] += vector[j];
@@ -583,7 +598,8 @@ void add_vector_to_cluster(double *vector, double *cluster_sum, int vector_size)
 
 
 /* use the information from cluster_sum array and cluster_count array to calculate the new centroids for each cluster */
-int update_medians(double **cluster_sum, double **centroids_array, int *cluster_count, int vector_size, int K){
+int update_medians(double **cluster_sum, double **centroids_array,
+                        int *cluster_count, int vector_size, int K){
     double epsilon = 0, norma, median;
     int epsilon_bool = 0;
     int i,j;
@@ -593,7 +609,8 @@ int update_medians(double **cluster_sum, double **centroids_array, int *cluster_
                 /*DRAFT: if(cluster_count[i] == 0){printf("An Error Has Occurred"); return 0;}*/
                 assertion_check(cluster_count[i] == 0);
                 median = cluster_sum[i][j]/cluster_count[i];
-                norma += (centroids_array[i][j] - median)*(centroids_array[i][j] - median);
+                norma += (centroids_array[i][j] - median)
+                        *(centroids_array[i][j] - median);
                 centroids_array[i][j] = median;
 
                 /* resets the sum and count arrays for the next iteration */
@@ -610,7 +627,8 @@ int update_medians(double **cluster_sum, double **centroids_array, int *cluster_
 }
 
 
-int k_means_c(double **vectors_array, double **centroids_array, int dimension, int num_of_vectors, int k, int max_iter){
+int k_means_c(double **vectors_array, double **centroids_array, int dimension,
+                                    int num_of_vectors, int k, int max_iter){
     int iteration, i, closest_cluster;
     int *cluster_count;
     double **cluster_sum;
