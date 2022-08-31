@@ -106,11 +106,11 @@ if __name__ == '__main__':
     if k >= N:
         error(True)
 
-    final_solution_mat = km.goal_fit(dim, N, int(goal_str[0]), k, input_vectors)
+    final_solution_mat = km.goal_fit(dim, N, ord(goal_str[0]), k, input_vectors)
 
     if (goal_str != "spk"):
         printSolution(final_solution_mat)
-        exit(0)
+        sys.exit()
 
     k = len(final_solution_mat[0])
 

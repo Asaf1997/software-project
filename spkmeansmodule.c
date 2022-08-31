@@ -9,35 +9,25 @@
 
 
 static double** convert_list_to_c(PyObject* pyList, int rows, int cull){
-    double **array = calloc(rows, sizeof(double*));
     int index_i, index_j;
+    double ** array;
     PyObject * py_row;
     PyObject * py_num;
 
-
-    if(!PyList_Check(pyList)){
-        return NULL;
-    }
+    assertion_check(!PyList_Check(pyList));
+    
+    array = make_mat(rows, cull);
 
     for (index_i = 0 ; index_i < rows ; index_i++){
-        array[index_i] = calloc(cull, sizeof(double));
         py_row = PyList_GetItem(pyList, index_i);
-
-        if (!PyList_Check(py_row)){
-            return NULL;
-        }
+        assertion_check(!PyList_Check(py_row));
 
         for(index_j=0 ; index_j < cull ; index_j++){
             py_num = PyList_GetItem(py_row, index_j);
-
-            if (!PyFloat_Check(py_num)){
-                return NULL;
-            }
-
+            assertion_check(!PyFloat_Check(py_num) && !PyLong_Check(py_num));
             array[index_i][index_j] = PyFloat_AsDouble(py_num);
         }
     }
-
     return array;
 }
 
@@ -64,7 +54,6 @@ static PyObject* convert_array_to_py(double** array, int rows, int cull){
 
 static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues, double ** final_array, int n){
     int i,j;
-    final_array = make_mat(n+1, n);
 
     for (i = 0 ; i < n ; i++){
         final_array[0][i] = eigenvalues[i];
@@ -96,8 +85,6 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     if (!PyArg_ParseTuple(args, "iiiiO", &dimension, &n, &goal_num, &K, &py_vectors_array)){
         return NULL;
     }
-
-    assertion_check(py_vectors_array == NULL);
 
     /* making c arrays with python input */
     vectors_array = convert_list_to_c(py_vectors_array, n, dimension);
@@ -132,7 +119,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
         }
 
         if(goal == e_spk){
-            eigenvectors = make_mat(n ,n);
+            eigenvectors = make_mat_identity(n ,n);
             eigenvalues = make_vector(n);
             jacobi(graph->lnorm_mat, n, eigenvectors, eigenvalues);
 
@@ -154,9 +141,11 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     }
 
     else{
-        eigenvectors = make_mat(n ,n);
+        eigenvectors = make_mat_identity(n ,n);
         eigenvalues = make_vector(n);
+
         jacobi(graph->vertices, n, eigenvectors, eigenvalues);
+        final_array = make_mat(n+1, n);
 
         make_jacobi_final_array(eigenvectors, eigenvalues, final_array, n);
         rows = n+1;
@@ -164,8 +153,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
 
     py_final_array = convert_array_to_py(final_array, rows, culs);
 
-    free_mat(vectors_array, n);
-    free_mat(final_array, rows); /* what happens if we free the same thing twice? */
+    if (goal == e_jacobi){free_mat(final_array, rows);}
     free_mat(eigenvectors, n);
     free_mat(graph->vertices, n);
     free_mat(graph->wam_mat, n);
@@ -173,10 +161,10 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     free_mat(graph->lnorm_mat, n);
     free_mat(U, n);
     free_mat(T, n);
-    free(graph);
-    free(eigenvalues);
-    free(eigenvalues_sorted);
-    
+    /*free(graph)*/;
+    if (eigenvalues != NULL){free(eigenvalues);}
+    if (eigenvalues_sorted != NULL){free(eigenvalues_sorted);}
+
     return py_final_array;
 }
 

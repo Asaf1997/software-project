@@ -229,8 +229,8 @@ void free_mat(double ** mat, int x){
         for (i=0 ; i < x ; i++){
         free(mat[i]);
         }
+        free(mat);
     }
-    free(mat);
 }
 
 
@@ -258,13 +258,11 @@ void wam(Graph * graph){
 }
 
 
-void copy_mat(double ** old, double ** copy, int rows, int culs){
-    int i,j;
-    copy = make_mat(rows, culs);
-    for(i=0 ; i<rows ; i++){
-        for(j=0 ; j<culs ; j++){
-            copy[i][j] = old[i][j];
-        }
+void copy_array(double * old, double * copy, int culs){
+    int j;
+    copy = make_vector(culs);
+    for(j=0 ; j<culs ; j++){
+        copy[j] = old[j];
     }
 }
 
@@ -369,7 +367,6 @@ void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors,
     c = 1 / sqrt(pow(t, 2) + 1);
     s = t*c;
 
-    /*printf("t= %f, c= %f, s= %f\n\n", t,c,s);*/
 
     /* Update Matrix Tag */
     for (r = 0; r < n; r++){
@@ -396,11 +393,6 @@ void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors,
         eigenvectors[r][i] = eigenvectors_tag[r][i];
         eigenvectors[r][j] = eigenvectors_tag[r][j];
     }
-    /*
-    printf("eigen vectors:\n");
-    print_mat(eigenvectors,n,n);
-    printf("\ntag: \n");
-    print_mat(eigenvectors_tag, n,n);*/
 }
 
 
@@ -430,7 +422,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors,
                                                 double * eigenvalues){
     double ** matrix_tag;
     double ** eigenvectors_tag;
-    int *piv;
+    int * piv;
     int i,j,r,k;
     int count_iter = 1;
 
@@ -453,16 +445,12 @@ void jacobi(double ** matrix, int n, double ** eigenvectors,
     /* Initialize Eigenvectors Matrix Tag */
     eigenvectors_tag = make_mat_identity(n, n);
 
+
     /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
     iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
-
     
     while (check_convergence(matrix, matrix_tag, n) != 1 
                             && count_iter <= MAX_ITER_JACOBI){
-       /* printf("iter num: %d\n", count_iter);
-        print_mat(eigenvectors, n, n);
-        printf("\n\n");*/
-
         /* Update Matrix */
         update_matrix(matrix, matrix_tag, n, i, j);
 
@@ -483,8 +471,8 @@ void jacobi(double ** matrix, int n, double ** eigenvectors,
     }
 
     free(piv);
-    free(matrix_tag);
-    free(eigenvectors_tag);
+    free_mat(matrix_tag, n);
+    free_mat(eigenvectors_tag, n);
 }
 
 
