@@ -11,12 +11,12 @@ const int MAX_ITER_JACOBI = 100;
 
 
 int main(int argc, char *argv[]){
-    Graph * graph = malloc(sizeof(Graph*));
     Goal goal;
     int n;
     char *input_name, *goal_str;
     double *eigenvalues;
     double **eigenvectors;
+    Graph * graph = malloc(sizeof(Graph*));
 
     /* checking correctness of the input */
     if(argc != 3 ){
@@ -95,13 +95,13 @@ int main(int argc, char *argv[]){
 
 /* returns the distance between two vectors */
 double distance(double vector1[], double vector2[], int length){
-    double sum=0.0;
+    double sum=0.0, res;
     int i;
     for(i=0; i < length; i++){
-        sum += (vector1[i] - vector2[i])*(vector1[i] - vector2[i]);
+        sum += pow((vector1[i] - vector2[i]), 2);
     }
-    sum = sqrt(sum);
-    return sum;
+    res = sqrt(sum);
+    return res;
 }
 
 
@@ -181,7 +181,6 @@ double ** make_mat_identity(int m, int n){
     for (i = 0; i < m; i++){
         mat[i] = calloc(n, sizeof(double));
         assertion_check(mat[i] == NULL);
-
         for (j=0 ; j < n ; j++){
             if (i == j) { mat[i][j] = 1.0; } else { mat[i][j] = 0.0; }
         }
@@ -260,7 +259,6 @@ void wam(Graph * graph){
 
 void copy_array(double * old, double * copy, int culs){
     int j;
-    copy = make_vector(culs);
     for(j=0 ; j<culs ; j++){
         copy[j] = old[j];
     }
@@ -288,22 +286,22 @@ void ddg(Graph * graph){
 }
 
 
-double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n){
-    double ** sqrt_matrix = make_mat(n, n);
+void sqrt_diagonal_matrix(double ** diagonal_matrix, double ** sqrt_matrix, int n){
     int i;
     for(i=0 ; i < n ; i++){
         sqrt_matrix[i][i] = 1 / sqrt(diagonal_matrix[i][i]);
     }
-    return sqrt_matrix;
 }
 
 
 void lnorm(Graph * graph){
-    double ** sqrt_D = sqrt_diagonal_matrix(graph->ddg_mat, graph->n);
-    double ** lnorm_mat;
-    double ** wam_mat = graph->wam_mat;
     int i,j;
     int n = graph->n;
+    double ** lnorm_mat;
+    double ** wam_mat = graph->wam_mat;
+    double ** sqrt_D = make_mat(n, n);
+
+    sqrt_diagonal_matrix(graph->ddg_mat, sqrt_D, graph->n);
     lnorm_mat = make_mat(n,n);
 
     for (i=0 ; i < n ; i++){
@@ -503,7 +501,7 @@ int largest_k_eigenvectors(double * eigenvalues, int n){
     N = n/2;
 
     for(i=0; i<N; i++){
-        delta = abs(eigenvalues[i]- eigenvalues[i+1]);
+        delta = fabs(eigenvalues[i]- eigenvalues[i+1]);
         if( delta > max_delta ){
             max_delta = delta;
             k = i + 1;
@@ -516,13 +514,16 @@ int largest_k_eigenvectors(double * eigenvalues, int n){
 void make_U(double ** eigenvectors, double * eigenvalues, 
                     double * eigenvalues_sorted, double ** U, int N, int K){
     int i,j,r;
+    double curr_val, curr_sorted_val;
     for (i=0 ; i < K ; i++){
-        for (r = 0 ; r < N ; r++){
-            if (eigenvalues_sorted[i] == eigenvalues[r]){
-                for (j=0 ; j<N ; j++){
-                    U[j][i] = eigenvectors[j][r];
+        curr_sorted_val = eigenvalues_sorted[i];
+        for (j = 0 ; j < N ; j++){
+            curr_val = eigenvalues[j];
+            if (curr_val == curr_sorted_val){
+                for (r=0 ; r<N ; r++){
+                    U[r][i] = eigenvectors[r][j];
                 }
-                eigenvalues[r] = -1;
+                eigenvalues[j] = -100.0;
                 break;
             }
         }
@@ -532,7 +533,7 @@ void make_U(double ** eigenvectors, double * eigenvalues,
 
 void make_T(double ** U, double ** T, int N, int K){
     int i,j;
-    double * zero_vector = make_vector(N);
+    double * zero_vector = make_vector(K);
     double norm;
     for (i=0 ; i<N ; i++){
         norm = distance(U[i], zero_vector, K);

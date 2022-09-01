@@ -103,14 +103,10 @@ if __name__ == '__main__':
     dim = len(input_vectors[0])
     N = len(input_vectors)
 
-    if k >= N:
+    if k >= N or k < 0:
         error(True)
 
     final_solution_mat = km.goal_fit(dim, N, ord(goal_str[0]), k, input_vectors)
-
-    if (goal_str != "spk"):
-        printSolution(final_solution_mat)
-        sys.exit()
 
     k = len(final_solution_mat[0])
 

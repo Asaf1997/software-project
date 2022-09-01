@@ -27,7 +27,7 @@ void free_mat(double ** mat, int x);
 void wam(Graph * graph);
 void copy_array(double * old, double * copy, int culs);
 void ddg(Graph * graph);
-double ** sqrt_diagonal_matrix(double ** diagonal_matrix, int n);
+void sqrt_diagonal_matrix(double ** diagonal_matrix, double ** sqrt_matrix, int n);
 void lnorm(Graph * graph);
 void find_largest_element_pivot(double ** matrix, int n, int * piv);
 int sign(double num);

@@ -1,22 +1,15 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <float.h>
 #include <math.h>
 #include "spkmeans.h"
 
 
-static double** convert_list_to_c(PyObject* pyList, int rows, int cull){
+static void convert_list_to_c(PyObject* pyList, double ** array, int rows, int cull){
     int index_i, index_j;
-    double ** array;
     PyObject * py_row;
     PyObject * py_num;
-
-    assertion_check(!PyList_Check(pyList));
-    
-    array = make_mat(rows, cull);
 
     for (index_i = 0 ; index_i < rows ; index_i++){
         py_row = PyList_GetItem(pyList, index_i);
@@ -28,7 +21,6 @@ static double** convert_list_to_c(PyObject* pyList, int rows, int cull){
             array[index_i][index_j] = PyFloat_AsDouble(py_num);
         }
     }
-    return array;
 }
 
 
@@ -66,36 +58,61 @@ static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues
 }
 
 
+static double ** compute_by_goal(Graph * graph, Goal goal){
+    wam(graph);
+    if (goal == e_wam){ return graph->wam_mat; }
+
+    ddg(graph);
+    if (goal == e_ddg){ return graph->ddg_mat; }
+
+    lnorm(graph);
+    return graph->lnorm_mat;
+}
+
+
+static void free_graph(Graph * graph, Goal goal, int n){
+    free_mat(graph->vertices, n);
+    if (goal == e_jacobi){ return; }
+
+    free_mat(graph->wam_mat, n);
+    if (goal == e_wam){ return; }
+
+    free_mat(graph->ddg_mat, n);
+    if (goal == e_ddg){ return; }
+
+    free_mat(graph->lnorm_mat, n);
+}
+
+
 static PyObject* goal_fit(PyObject* self, PyObject* args){
     int dimension, n, goal_num, K, rows, culs;
     double **vectors_array;
-    double **final_array = NULL;
-    double *eigenvalues = NULL;
-    double *eigenvalues_sorted = NULL;
-    double **eigenvectors = NULL;
-    double **U = NULL;
-    double **T = NULL;
-    Graph * graph = malloc(sizeof(Graph*));
+    double **final_array;
+    double *spk_eigenvalues;
+    double *spk_eigenvalues_sorted;
+    double **spk_eigenvectors;
+    double *jacobi_eigenvalues;
+    double **jacobi_eigenvectors;
+    double **U;
+    double **T;
+    Graph graph = {0};
     Goal goal;
 
     PyObject * py_vectors_array;
-    PyObject * py_final_array;
+    PyObject * py_final_array = NULL;
 
     /* get arguments to variables */
-    if (!PyArg_ParseTuple(args, "iiiiO", &dimension, &n, &goal_num, &K, &py_vectors_array)){
-        return NULL;
-    }
+    assertion_check(!PyArg_ParseTuple(args, "iiiiO", &dimension, &n, &goal_num, &K, &py_vectors_array));
 
     /* making c arrays with python input */
-    vectors_array = convert_list_to_c(py_vectors_array, n, dimension);
-    assertion_check(vectors_array == NULL);
+    assertion_check(!PyList_Check(py_vectors_array));
 
-    graph->dim = dimension;
-    graph->n = n;
-    graph->vertices = vectors_array;
-    graph->ddg_mat = NULL;
-    graph->lnorm_mat = NULL;
-    graph->wam_mat = NULL;
+    vectors_array = make_mat(n, dimension);
+    convert_list_to_c(py_vectors_array, vectors_array, n, dimension);
+
+    graph.dim = dimension;
+    graph.n = n;
+    graph.vertices = vectors_array;
 
     goal = goal_num;
 
@@ -103,68 +120,58 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
     culs = n;
 
     if (goal != e_jacobi){
-        wam(graph);
-        if (goal == e_wam){
-            final_array = graph->wam_mat;
-        }
+        final_array = compute_by_goal(&graph, goal);
 
-        ddg(graph);
-        if (goal == e_ddg){
-            final_array = graph->ddg_mat;
-        }
+        if (goal == e_spk){
+            spk_eigenvectors = make_mat_identity(n ,n);
+            spk_eigenvalues = make_vector(n);
 
-        lnorm(graph);
-        if(goal == e_lnorm){
-            final_array = graph->lnorm_mat;
-        }
+            jacobi(graph.lnorm_mat, n, spk_eigenvectors, spk_eigenvalues);
 
-        if(goal == e_spk){
-            eigenvectors = make_mat_identity(n ,n);
-            eigenvalues = make_vector(n);
-            jacobi(graph->lnorm_mat, n, eigenvectors, eigenvalues);
-
-            copy_array(eigenvalues, eigenvalues_sorted, n);
-            sort_descending(eigenvalues_sorted, n);
-            
+            spk_eigenvalues_sorted = make_vector(n);
+            copy_array(spk_eigenvalues, spk_eigenvalues_sorted, n);
+            sort_descending(spk_eigenvalues_sorted, n);
+                    
             if (K == 0){
-                K = largest_k_eigenvectors(eigenvalues_sorted, n);
+               K = largest_k_eigenvectors(spk_eigenvalues_sorted, n);
             }
 
             U = make_mat(n, K);
             T = make_mat(n, K);
-            make_U(eigenvectors, eigenvalues, eigenvalues_sorted, U, n, K);
+            make_U(spk_eigenvectors, spk_eigenvalues, spk_eigenvalues_sorted, U, n, K);
             make_T(U, T, n, K);
-
-            final_array = T;
+            
             culs = K;
+            py_final_array = convert_array_to_py(T, rows, culs);
+
+            free_mat(U, n);
+            free_mat(T, n);
+            free_mat(spk_eigenvectors, n);
+            free(spk_eigenvalues);
+            free(spk_eigenvalues_sorted);
+        }
+        else{
+            py_final_array = convert_array_to_py(final_array, rows, culs);
         }
     }
+    else{ /* goal == jacobi */
+        jacobi_eigenvectors = make_mat_identity(n ,n);
+        jacobi_eigenvalues = make_vector(n);
 
-    else{
-        eigenvectors = make_mat_identity(n ,n);
-        eigenvalues = make_vector(n);
-
-        jacobi(graph->vertices, n, eigenvectors, eigenvalues);
+        jacobi(graph.vertices, n, jacobi_eigenvectors, jacobi_eigenvalues);
         final_array = make_mat(n+1, n);
 
-        make_jacobi_final_array(eigenvectors, eigenvalues, final_array, n);
+        make_jacobi_final_array(jacobi_eigenvectors, jacobi_eigenvalues, final_array, n);
         rows = n+1;
+
+        py_final_array = convert_array_to_py(final_array, rows, culs);
+
+        free_mat(final_array, rows);
+        free_mat(jacobi_eigenvectors, n);
+        free(jacobi_eigenvalues);
     }
 
-    py_final_array = convert_array_to_py(final_array, rows, culs);
-
-    if (goal == e_jacobi){free_mat(final_array, rows);}
-    free_mat(eigenvectors, n);
-    free_mat(graph->vertices, n);
-    free_mat(graph->wam_mat, n);
-    free_mat(graph->ddg_mat, n);
-    free_mat(graph->lnorm_mat, n);
-    free_mat(U, n);
-    free_mat(T, n);
-    /*free(graph)*/;
-    if (eigenvalues != NULL){free(eigenvalues);}
-    if (eigenvalues_sorted != NULL){free(eigenvalues_sorted);}
-
+    free_graph(&graph, goal, n);
     return py_final_array;
 }
 
@@ -183,18 +190,13 @@ static PyObject* fit_kmeans(PyObject* self, PyObject* args){
     }
 
     /* making c arrays with python input */
-    vectors_array = convert_list_to_c(py_vectors_array, num_of_vectors, dimension);
-    centroids_array = convert_list_to_c(py_centroids_array, k, dimension);
-
-    if (vectors_array == NULL || centroids_array == NULL){
-        return NULL;
-    }
-
+    vectors_array = make_mat(num_of_vectors, dimension);
+    centroids_array = make_mat(k, dimension);
+    convert_list_to_c(py_vectors_array, vectors_array, num_of_vectors, dimension);
+    convert_list_to_c(py_centroids_array, centroids_array, k, dimension);
 
     /* initialize kmeans algorithem */
-    if(!k_means_c(vectors_array, centroids_array, dimension, num_of_vectors, k, max_iter)){
-        return NULL;
-    }
+    assertion_check(!k_means_c(vectors_array, centroids_array, dimension, num_of_vectors, k, max_iter));
 
     py_final_centroids = convert_array_to_py(centroids_array, k, dimension);
 
