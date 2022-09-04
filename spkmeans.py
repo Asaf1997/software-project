@@ -6,11 +6,12 @@ import mykmeanssp as km
 
 MAX_ITER = 300
 
-
+# exit the program with a message
 def error(b):
     sys.exit("Invalid Input!") if b else sys.exit("An Error Has Occurred")
 
 
+# checking and reading arguments
 def get_args():
     # checks if the arguments are valid
     argc = len(sys.argv)
@@ -31,6 +32,7 @@ def get_args():
         error(True)
 
 
+# prints the final solution for spk goal format
 def printSolution_spk(final_centroids, observ_array):
     temp_txt = ""
     for i in range(len(observ_array)):
@@ -43,6 +45,7 @@ def printSolution_spk(final_centroids, observ_array):
         print(temp_txt[:-1])
 
 
+# prints a matrix in the format requested in the assignment
 def printSolution(mat):
     temp_txt = ""
     for i in range(len(mat)):
@@ -52,6 +55,7 @@ def printSolution(mat):
         print(temp_txt[:-1])
 
 
+# a function made for kmeans++
 def get_min_dist(vector, centroids_list, i):
     min_dist = float('inf')
     for j in range(i):
@@ -96,21 +100,29 @@ if __name__ == '__main__':
     try:
         input_vectors = pd.read_csv(input_name, header=None)
         input_vectors = pd.DataFrame(input_vectors).values.tolist()
-        # input_vectors = input_vectors.to_numpy().tolist()
     except:
         error(True)
 
     dim = len(input_vectors[0])
     N = len(input_vectors)
 
+    # incase input is wrong
     if k >= N or k < 0:
         error(True)
 
+    # if goal == spk : returns the T matrix
+    # if goal != spk : returns the matrix requested according the goal
     final_solution_mat = km.goal_fit(dim, N, ord(goal_str[0]), k, input_vectors)
+
+    if goal_str != "spk":
+        printSolution(final_solution_mat)
+        sys.exit()
+
+    """ $$ the rest of the spk program starts here $$ """
 
     k = len(final_solution_mat[0])
 
-    # adding index cull
+    # adding index column for each row starts from 0 to N-1
     for i in range(len(final_solution_mat)):
         final_solution_mat[i].insert(0, i)
 
@@ -120,6 +132,9 @@ if __name__ == '__main__':
     initial_centroids = initial_centroids[:, 1:].tolist()
     vectors = final_solution_mat[:, 1:].tolist()
 
+    # the second C program
     final_centroids = km.fit_kmeans(len(vectors[0]), len(vectors), k, MAX_ITER, vectors, initial_centroids)
 
     printSolution_spk(final_centroids, observ_index)
+
+    # Thank you

@@ -18,26 +18,21 @@ int main(int argc, char *argv[]){
     double **eigenvectors;
     Graph * graph = malloc(sizeof(Graph*));
 
-    /* checking correctness of the input */
+    /* checking & reading the input */
     if(argc != 3 ){
         printf("Invalid Input!\n");
         exit(1);
     }
-    
     goal_str = argv[1];
     input_name = argv[2];
-    
-
     if (strcmp(goal_str, "wam") &&  strcmp(goal_str, "ddg") && strcmp(goal_str, "lnorm") && strcmp(goal_str, "jacobi")){
         printf("Invalid Input!\n");
         exit(1);
     }
-
     goal = (int)goal_str[0];
 
     /* insert information from file to graph */
     read_data(graph, input_name);
-
     n = graph->n;
 
     /* operate by goal */
@@ -105,6 +100,7 @@ double distance(double vector1[], double vector2[], int length){
 }
 
 
+/* exits the program if b == true */
 void assertion_check(int b){
     if (b){
         printf("An Error Has Occurred");
@@ -113,6 +109,7 @@ void assertion_check(int b){
 }
 
 
+/* reads the data from file to graph */
 void read_data(Graph * graph, char * file_path){
     double value;
     char c;
@@ -121,6 +118,7 @@ void read_data(Graph * graph, char * file_path){
     FILE * f = fopen(file_path, "r");
     assertion_check(f == NULL);
 
+    /* getting dimension and num of vectors */
     while (fscanf(f, "%lf%c", &value, &c) == 2)
     {
         if (first_bool == 1) {
@@ -135,8 +133,8 @@ void read_data(Graph * graph, char * file_path){
 
     rewind(f);
 
+    /* writing in matrix */
     vectors_array = make_mat(n, d);
-
     for (i = 0; i < n; i++) {
         for (j = 0; j < d; j++) {
             fscanf(f, "%lf%c", &value, &c);
@@ -152,6 +150,7 @@ void read_data(Graph * graph, char * file_path){
 }
 
 
+/* allocates memory for matrix m*n */
 double ** make_mat(int m, int n){
     double ** mat;
     int i,j;
@@ -171,6 +170,7 @@ double ** make_mat(int m, int n){
 }
 
 
+/* allocates memory for matrix and make it identity */ 
 double ** make_mat_identity(int m, int n){
     double ** mat;
     int i,j;
@@ -189,6 +189,7 @@ double ** make_mat_identity(int m, int n){
 }
 
 
+/* allocate memory for a vector (array) */
 double * make_vector(int n){
     double * vector = calloc(n, sizeof(double));
     assertion_check(vector == NULL);
@@ -196,6 +197,7 @@ double * make_vector(int n){
 }
 
 
+/* prints the matrix in the requested format */
 void print_mat(double ** mat, int i, int j){
     int x,y;
     for (x = 0 ; x < i ; x++){
@@ -210,6 +212,7 @@ void print_mat(double ** mat, int i, int j){
 }
 
 
+/* prints at array in the requested format */
 void print_array(double * array, int n){
     int y;
     for (y = 0 ; y < n ; y++){
@@ -232,7 +235,7 @@ void free_mat(double ** mat, int x){
     }
 }
 
-
+/* wam, ddg, and lnorm are updated in graph */
 void wam(Graph * graph){
     double ** wam_mat;
     double ** vectors = graph->vertices;
@@ -334,11 +337,13 @@ void find_largest_element_pivot(double ** matrix, int n, int * piv){
 }
 
 
+/* returns 1 or -1 according to the sign of the number */
 int sign(double num){
     if(num >= 0){ return 1; } else { return -1; }
 }
 
 
+/* off function according to the project request */
 double off(double ** matrix, int n){
     double sum = 0.0;
     int i,j;
@@ -353,7 +358,8 @@ double off(double ** matrix, int n){
 }
 
 
-/* Assume that matrix argument is symetric */
+/* a single iteration of jacobi algorithem
+    assumes that matrix and matrix_tag are the same size and that the first is symetric */
 void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors, 
                         double **eigenvectors_tag, int n, int i, int j){
     int r;
@@ -394,6 +400,7 @@ void iter_jacobi(double ** matrix, double ** matrix_tag, double **eigenvectors,
 }
 
 
+/* function for the jacobi_iteration function */
 void update_matrix(double ** matrix, double ** matrix_tag, int n,
                                                         int i, int j){
     int r;
@@ -406,6 +413,7 @@ void update_matrix(double ** matrix, double ** matrix_tag, int n,
 }
 
 
+/* a function for the jacobi function */
 int check_convergence(double ** matrix, double ** matrix_tag, int n){
     double epsilon = 1.0*pow(10,-5);
     if (off(matrix, n) - off(matrix_tag, n) <= epsilon){
@@ -443,10 +451,10 @@ void jacobi(double ** matrix, int n, double ** eigenvectors,
     /* Initialize Eigenvectors Matrix Tag */
     eigenvectors_tag = make_mat_identity(n, n);
 
-
     /* Update Matrix Tag & Eigenvectors Matrix Tag & Eigenvectors Matrix */
     iter_jacobi(matrix, matrix_tag, eigenvectors, eigenvectors_tag, n, i, j);
     
+    /* doing iterations until requested result */
     while (check_convergence(matrix, matrix_tag, n) != 1 
                             && count_iter <= MAX_ITER_JACOBI){
         /* Update Matrix */
@@ -474,6 +482,7 @@ void jacobi(double ** matrix, int n, double ** eigenvectors,
 }
 
 
+/* sorts an array in descending order */
 void sort_descending(double * array, int n){
     int i, j;
     double temp_value;
@@ -491,17 +500,19 @@ void sort_descending(double * array, int n){
     }
 }
 
-/* assuming that eigenvalues are in descending order */
-int largest_k_eigenvectors(double * eigenvalues, int n){
-    int i, max_delta, k, N;
-    double delta;
 
-    max_delta = -1;
+/*  returns the ideal number of clusters for kmeans algorithem
+    assuming that eigenvalues are in descending order */
+int largest_k_eigenvectors(double * eigenvalues, int N){
+    int i, k, max_iter;
+    double delta ,max_delta;
+
+    max_delta = -1.0;
     k = 0;
-    N = n/2;
+    max_iter = N/2;
 
-    for(i=0; i<N; i++){
-        delta = fabs(eigenvalues[i]- eigenvalues[i+1]);
+    for(i=0; i<max_iter; i++){
+        delta = eigenvalues[i]- eigenvalues[i+1];
         if( delta > max_delta ){
             max_delta = delta;
             k = i + 1;
@@ -511,6 +522,7 @@ int largest_k_eigenvectors(double * eigenvalues, int n){
 }
 
 
+/* makes the U matrix according to the assignment discription */
 void make_U(double ** eigenvectors, double * eigenvalues, 
                     double * eigenvalues_sorted, double ** U, int N, int K){
     int i,j,r;
@@ -531,6 +543,7 @@ void make_U(double ** eigenvectors, double * eigenvalues,
 }
 
 
+/* makes the T matrix according to the assignment discription */
 void make_T(double ** U, double ** T, int N, int K){
     int i,j;
     double * zero_vector = make_vector(K);
@@ -538,14 +551,17 @@ void make_T(double ** U, double ** T, int N, int K){
     for (i=0 ; i<N ; i++){
         norm = distance(U[i], zero_vector, K);
         for (j=0 ; j<K ; j++){
-            T[i][j] = U[i][j]/norm;
+            if(norm > 0.0004){ 
+                T[i][j] = U[i][j]/norm;
+            }
         }
     }
     free(zero_vector);
 }
 
 
-/* KMEANS FUNCTIONS FOR PYTHON FILE */
+/* ############## KMEANS FUNCTIONS FOR PYTHON FILE ############## */
+
 
 /* allocate space for this array */
 int * make_cluster_count(int K){

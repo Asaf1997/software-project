@@ -44,6 +44,7 @@ static PyObject* convert_array_to_py(double** array, int rows, int cull){
 }
 
 
+/* makes a matrix to print according to the jacobi program format as requested in the assignment */
 static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues, double ** final_array, int n){
     int i,j;
 
@@ -58,6 +59,7 @@ static void make_jacobi_final_array(double ** eigenvectors, double * eigenvalues
 }
 
 
+/* returns a matrix (wam, ddg or lnorm) according to the goal requested */
 static double ** compute_by_goal(Graph * graph, Goal goal){
     wam(graph);
     if (goal == e_wam){ return graph->wam_mat; }
@@ -70,6 +72,7 @@ static double ** compute_by_goal(Graph * graph, Goal goal){
 }
 
 
+/* frees graph according to the goal requested */
 static void free_graph(Graph * graph, Goal goal, int n){
     free_mat(graph->vertices, n);
     if (goal == e_jacobi){ return; }
@@ -84,6 +87,7 @@ static void free_graph(Graph * graph, Goal goal, int n){
 }
 
 
+/* the main function that is used in the python program */
 static PyObject* goal_fit(PyObject* self, PyObject* args){
     int dimension, n, goal_num, K, rows, culs;
     double **vectors_array;
@@ -106,7 +110,6 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
 
     /* making c arrays with python input */
     assertion_check(!PyList_Check(py_vectors_array));
-
     vectors_array = make_mat(n, dimension);
     convert_list_to_c(py_vectors_array, vectors_array, n, dimension);
 
@@ -126,12 +129,15 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
             spk_eigenvectors = make_mat_identity(n ,n);
             spk_eigenvalues = make_vector(n);
 
+            /* using jacobi algorithem on lnorm mat */
             jacobi(graph.lnorm_mat, n, spk_eigenvectors, spk_eigenvalues);
 
+            /* making a sorted eigenvalues array */
             spk_eigenvalues_sorted = make_vector(n);
             copy_array(spk_eigenvalues, spk_eigenvalues_sorted, n);
             sort_descending(spk_eigenvalues_sorted, n);
                     
+            /* if K == 0 then needs to check the ideal number of clusters */
             if (K == 0){
                K = largest_k_eigenvectors(spk_eigenvalues_sorted, n);
             }
@@ -141,8 +147,9 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
             make_U(spk_eigenvectors, spk_eigenvalues, spk_eigenvalues_sorted, U, n, K);
             make_T(U, T, n, K);
             
-            culs = K;
+            /* sending T matrix back to python to continue the process of kmeans */
             py_final_array = convert_array_to_py(T, rows, culs);
+            culs = K;
 
             free_mat(U, n);
             free_mat(T, n);
@@ -151,6 +158,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
             free(spk_eigenvalues_sorted);
         }
         else{
+            /* final array is wam, ddg or lnorm */
             py_final_array = convert_array_to_py(final_array, rows, culs);
         }
     }
@@ -176,6 +184,7 @@ static PyObject* goal_fit(PyObject* self, PyObject* args){
 }
 
 
+/* kmeans algorithem for python program if goal is 'skp' */
 static PyObject* fit_kmeans(PyObject* self, PyObject* args){
     int dimension, num_of_vectors, k, max_iter, i;
     double **vectors_array, **centroids_array;
